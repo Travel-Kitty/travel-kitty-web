@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String       @id @default(cuid())
+  wallet    String       @unique
+  createdAt DateTime     @default(now())
+  trips     TripMember[]
+}
+
+model Trip {
+  id        String       @id @default(cuid())
+  name      String
+  owner     String // wallet address
+  createdAt DateTime     @default(now())
+  members   TripMember[]
+  expenses  Expense[]
+}
+
+model TripMember {
+  id       String   @id @default(cuid())
+  tripId   String
+  wallet   String
+  joinedAt DateTime @default(now())
+  trip     Trip     @relation(fields: [tripId], references: [id])
+  user     User     @relation(fields: [wallet], references: [wallet])
+}
+
+model Expense {
+  id         String   @id @default(cuid())
+  tripId     String
+  payer      String // wallet address
+  amountUsd6 Int // USD * 1e6
+  cid        String // ipfs cid for receipt json or image
+  txHash     String? // onchain tx for addExpense
+  createdAt  DateTime @default(now())
+  trip       Trip     @relation(fields: [tripId], references: [id])
+}
