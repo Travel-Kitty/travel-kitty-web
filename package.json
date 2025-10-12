@@ -9,19 +9,37 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@chainsafe/libp2p-noise": "^17.0.0",
+    "@helia/unixfs": "^6.0.1",
+    "@libp2p/mplex": "^12.0.6",
+    "@libp2p/webrtc": "^6.0.6",
+    "@libp2p/websockets": "^10.0.6",
+    "@libp2p/webtransport": "^6.0.7",
+    "@prisma/client": "^6.17.1",
+    "@rainbow-me/rainbowkit": "^2.2.8",
+    "@supabase/supabase-js": "^2.75.0",
+    "@tanstack/react-query": "^5.90.2",
+    "clsx": "^2.1.1",
+    "helia": "^6.0.1",
+    "it-all": "^3.0.9",
+    "libp2p": "^3.0.6",
+    "next": "15.5.4",
+    "prisma": "^6.17.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.4"
+    "viem": "^2.38.0",
+    "wagmi": "^2.18.0",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
-    "typescript": "^5",
-    "@types/node": "^20",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20.19.21",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }
