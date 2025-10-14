@@ -1,10 +1,11 @@
 import "./globals.css";
 import "@rainbow-me/rainbowkit/styles.css";
-import { RQProvider } from "@/lib/react-query";
-import { config } from "@/lib/wagmi";
 import { headers } from "next/headers";
 import { WagmiProvider } from "wagmi";
-import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
+
+import { RQProvider } from "@/lib/react-query";
+import { config } from "@/lib/wagmi";
 
 export const metadata = {
   title: "Travel Kitty",
@@ -16,7 +17,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // SSR hint so RainbowKit can render correctly in Next 15
   headers();
 
   return (
