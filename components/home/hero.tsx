@@ -5,6 +5,7 @@ import { motion, Variants } from "framer-motion";
 import { AuroraText } from "../ui/aurora-text";
 import { MagicCard } from "../ui/magic-card";
 import { SpinningText } from "../ui/spinning-text";
+import { AnimatedShinyText } from "../ui/animated-shiny-text";
 import FloatingElement from "./floating-element";
 
 const container: Variants = {
@@ -57,7 +58,9 @@ export default function Hero() {
             className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-xs"
           >
             <Activity className="h-4 w-4 text-green-500" />
-            <span>Built on Base Sepolia • Web3 + AI Powered</span>
+            <AnimatedShinyText>
+              Built on Base Sepolia • Web3 + AI Powered
+            </AnimatedShinyText>
           </motion.div>
 
           <motion.h1
