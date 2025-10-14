@@ -25,7 +25,11 @@ export default function RootLayout({
         <WagmiProvider config={config}>
           <RQProvider>
             <RainbowKitProvider>
-              <div className="mx-auto max-w-4xl p-6">{children}</div>
+              <div
+              // className="mx-auto max-w-4xl p-6"
+              >
+                {children}
+              </div>
             </RainbowKitProvider>
           </RQProvider>
         </WagmiProvider>
