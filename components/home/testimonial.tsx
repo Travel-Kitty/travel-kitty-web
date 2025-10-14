@@ -16,6 +16,63 @@ const headerVariants: Variants = {
   },
 };
 
+const TESTIMONIALS = [
+  {
+    name: "Raka Pradipta",
+    username: "@raka.trips",
+    body: "Receipts scanned in seconds review, submit, done.",
+    img: "https://avatar.vercel.sh/raka",
+  },
+  {
+    name: "Aulia Putri",
+    username: "@auliarmdnii",
+    body: "Every settlement links to a Base tx fully verifiable.",
+    img: "https://avatar.vercel.sh/aulia",
+  },
+  {
+    name: "Kevin Lim",
+    username: "@kevinlim",
+    body: "Multi currency just works no manual FX math.",
+    img: "https://avatar.vercel.sh/kevin",
+  },
+  {
+    name: "Dewi Kartika",
+    username: "@dewik",
+    body: "IPFS images, onchain hashes privacy with auditability.",
+    img: "https://avatar.vercel.sh/dewi",
+  },
+  {
+    name: "Arif Nugroho",
+    username: "@arif.ng",
+    body: "Net settlement shows exactly who pays what.",
+    img: "https://avatar.vercel.sh/arif",
+  },
+  {
+    name: "Sinta Wardana",
+    username: "@sintawr",
+    body: "Base Sepolia demo made onboarding effortless.",
+    img: "https://avatar.vercel.sh/sinta",
+  },
+  {
+    name: "Bagus Mahendra",
+    username: "@bagus.m",
+    body: "Fast UI realtime updates while logging batches.",
+    img: "https://avatar.vercel.sh/bagus",
+  },
+  {
+    name: "Yuki Tan",
+    username: "@yukitan",
+    body: "Oneclick CSV export keeps reimbursements tidy.",
+    img: "https://avatar.vercel.sh/yuki",
+  },
+  {
+    name: "Nadia Putri",
+    username: "@nadia.putri",
+    body: "Onchain trail ends disputes before they start.",
+    img: "https://avatar.vercel.sh/nadia",
+  },
+];
+
 export default function Testimonial() {
   return (
     <section className="px-4 sm:px-6 lg:px-8 py-16">
@@ -36,44 +93,7 @@ export default function Testimonial() {
         </motion.div>
         <div className="relative flex w-full flex-col items-center justify-center overflow-hidden">
           <Marquee pauseOnHover className="[--duration:25s]">
-            {[
-              {
-                name: "Jack",
-                username: "@jack",
-                body: "I've never seen anything like this before. It's amazing. I love it.",
-                img: "https://avatar.vercel.sh/jack",
-              },
-              {
-                name: "Jill",
-                username: "@jill",
-                body: "I don't know what to say. I'm speechless. This is amazing.",
-                img: "https://avatar.vercel.sh/jill",
-              },
-              {
-                name: "John",
-                username: "@john",
-                body: "I'm at a loss for words. This is amazing. I love it.",
-                img: "https://avatar.vercel.sh/john",
-              },
-              {
-                name: "Jane",
-                username: "@jane",
-                body: "I'm at a loss for words. This is amazing. I love it.",
-                img: "https://avatar.vercel.sh/jane",
-              },
-              {
-                name: "Jenny",
-                username: "@jenny",
-                body: "I'm at a loss for words. This is amazing. I love it.",
-                img: "https://avatar.vercel.sh/jenny",
-              },
-              {
-                name: "James",
-                username: "@james",
-                body: "I'm at a loss for words. This is amazing. I love it.",
-                img: "https://avatar.vercel.sh/james",
-              },
-            ].map((t, i) => (
+            {TESTIMONIALS.map((t, i) => (
               <figure
                 key={i}
                 className={cn(
@@ -106,44 +126,7 @@ export default function Testimonial() {
             ))}
           </Marquee>
           <Marquee reverse pauseOnHover className="[--duration:23s]">
-            {[
-              {
-                name: "Jack",
-                username: "@jack",
-                body: "I've never seen anything like this before. It's amazing. I love it.",
-                img: "https://avatar.vercel.sh/jack",
-              },
-              {
-                name: "Jill",
-                username: "@jill",
-                body: "I don't know what to say. I'm speechless. This is amazing.",
-                img: "https://avatar.vercel.sh/jill",
-              },
-              {
-                name: "John",
-                username: "@john",
-                body: "I'm at a loss for words. This is amazing. I love it.",
-                img: "https://avatar.vercel.sh/john",
-              },
-              {
-                name: "Jane",
-                username: "@jane",
-                body: "I'm at a loss for words. This is amazing. I love it.",
-                img: "https://avatar.vercel.sh/jane",
-              },
-              {
-                name: "Jenny",
-                username: "@jenny",
-                body: "I'm at a loss for words. This is amazing. I love it.",
-                img: "https://avatar.vercel.sh/jenny",
-              },
-              {
-                name: "James",
-                username: "@james",
-                body: "I'm at a loss for words. This is amazing. I love it.",
-                img: "https://avatar.vercel.sh/james",
-              },
-            ].map((t, i) => (
+            {TESTIMONIALS.map((t, i) => (
               <figure
                 key={i}
                 className={cn(
