@@ -1,15 +1,50 @@
 import React from "react";
 import { BarChart3, Globe, Lock, Shield, Sparkles, Zap } from "lucide-react";
+import { motion, Variants } from "framer-motion";
 
 import { AuroraText } from "../ui/aurora-text";
 import { MagicCard } from "../ui/magic-card";
 import { Pointer } from "../ui/pointer";
 
+const headerVariants: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+const gridVariants: Variants = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.15,
+    },
+  },
+};
+
+const iconVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.85 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
 export default function Features() {
   return (
     <section id="features" className="px-4 sm:px-6 lg:px-8 py-16">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-10 text-center">
+        <motion.div
+          className="mb-10 text-center"
+          variants={headerVariants}
+          initial="hidden"
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.35 }}
+        >
           <h2 className="text-3xl sm:text-4xl font-bold">
             Why <AuroraText>Travel Kitty</AuroraText>?
           </h2>
@@ -17,9 +52,15 @@ export default function Features() {
             Combining AI intelligence with blockchain transparency to solve
             group expense tracking forever.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <motion.div
+          className="grid gap-5 md:grid-cols-2 lg:grid-cols-3"
+          variants={gridVariants}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.25 }}
+        >
           {[
             {
               icon: <Sparkles className="h-6 w-6" />,
@@ -75,23 +116,32 @@ export default function Features() {
               className="group rounded-2xl border-[var(--tk-card)] p-6 transition-all hover:shadow-lg custom-cursor"
               data-animate
             >
-              <div
+              <motion.div
+                variants={iconVariants}
                 className={`mb-3 inline-flex rounded-xl bg-gradient-to-r ${feature.color} p-3 text-white`}
               >
                 {feature.icon}
-              </div>
-              <h3 className="text-lg sm:text-xl font-semibold">
+              </motion.div>
+
+              <motion.h3
+                className="text-lg sm:text-xl font-semibold"
+                variants={iconVariants}
+              >
                 {feature.title}
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              </motion.h3>
+              <motion.p
+                className="mt-1 text-sm text-muted-foreground"
+                variants={iconVariants}
+              >
                 {feature.description}
-              </p>
+              </motion.p>
+
               <Pointer>
                 <div className="text-2xl">{feature.emoji}</div>
               </Pointer>
             </MagicCard>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

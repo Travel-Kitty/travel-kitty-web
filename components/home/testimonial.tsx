@@ -1,23 +1,39 @@
 import React from "react";
 import Image from "next/image";
+import { motion, Variants } from "framer-motion";
 
 import { AuroraText } from "../ui/aurora-text";
 import { Marquee } from "../ui/marquee";
 
 import { cn } from "@/lib/utils";
 
+const headerVariants: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
 export default function Testimonial() {
   return (
     <section className="px-4 sm:px-6 lg:px-8 py-16">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 text-center">
+        <motion.div
+          className="mb-8 text-center"
+          variants={headerVariants}
+          initial="hidden"
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.35 }}
+        >
           <h2 className="text-3xl sm:text-4xl font-bold">
             What travelers <AuroraText>say</AuroraText>
           </h2>
           <p className="mt-2 text-sm sm:text-base text-muted-foreground">
             Real feedback from people who split smarter with Travel Kitty
           </p>
-        </div>
+        </motion.div>
         <div className="relative flex w-full flex-col items-center justify-center overflow-hidden">
           <Marquee pauseOnHover className="[--duration:25s]">
             {[

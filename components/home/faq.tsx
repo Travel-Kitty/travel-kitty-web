@@ -1,17 +1,48 @@
 import React from "react";
+import { motion, Variants } from "framer-motion";
 
 import { AuroraText } from "../ui/aurora-text";
+
+const headerVariants: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+const listVariants: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.15 } },
+};
 
 export default function Faq() {
   return (
     <section id="faq" className="px-4 sm:px-6 lg:px-8 py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-10 text-center">
+        <motion.div
+          className="mb-10 text-center"
+          variants={headerVariants}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.35 }}
+        >
           <h2 className="text-3xl sm:text-4xl font-bold">
             Frequently Asked <AuroraText>Questions</AuroraText>
           </h2>
-        </div>
-        <div className="space-y-3">
+        </motion.div>
+
+        <motion.div
+          className="space-y-3"
+          variants={listVariants}
+          initial="hidden"
+          whileInView={{
+            opacity: 1,
+            y: 0,
+          }}
+          viewport={{ once: true, amount: 0.25 }}
+        >
           {[
             {
               q: "Do I need cryptocurrency to use Travel Kitty?",
@@ -34,7 +65,7 @@ export default function Faq() {
               a: "Yes! Export to CSV, PDF, or integrate with your accounting software via our API.",
             },
           ].map((faq, idx) => (
-            <details
+            <motion.details
               key={idx}
               className="group rounded-xl border border-border/60 p-5"
             >
@@ -45,9 +76,9 @@ export default function Faq() {
                 {faq.q}
               </summary>
               <p className="mt-2 text-sm text-muted-foreground">{faq.a}</p>
-            </details>
+            </motion.details>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );
