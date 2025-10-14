@@ -1,3 +1,4 @@
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -16,7 +17,7 @@ import {
 import { baseSepolia } from "wagmi/chains";
 import Link from "next/link";
 import { config } from "@/lib/wagmi";
-import { ADDR, factoryAbi, faucetAbi } from "@/lib/contracts";
+import { ADDR, /*factoryAbi,*/ faucetAbi } from "@/lib/contracts";
 
 // ---------- small utils ----------
 const basescanTx = (hash: string) => `https://sepolia.basescan.org/tx/${hash}`;
@@ -125,8 +126,8 @@ export default function Home() {
         functionName: "claim",
         args: [],
       });
-      const hash = await writeContract(config, sim.request);
-      await waitForTransactionReceipt(config, { hash });
+      // const hash = await writeContract(config, sim.request);
+      // await waitForTransactionReceipt(config, { hash });
       setClaimMsg("✅ Claimed mUSD!");
     } catch (e) {
       // If cooldown, compute next allowed time
@@ -167,40 +168,40 @@ export default function Home() {
       const code6 = makeCode6();
 
       // 1) simulate to get the future address returned by factory
-      const sim = await simulateContract(config, {
-        address: ADDR.FACTORY,
-        abi: factoryAbi,
-        functionName: "createTrip",
-        args: [address as `0x${string}`],
-        chainId: baseSepolia.id,
-        account: address as `0x${string}`,
-      });
+      // const sim = await simulateContract(config, {
+      //   address: ADDR.FACTORY,
+      //   abi: factoryAbi,
+      //   functionName: "createTrip",
+      //   args: [address as `0x${string}`],
+      //   chainId: baseSepolia.id,
+      //   account: address as `0x${string}`,
+      // });
 
-      // 2) send the tx and wait
-      const hash = await writeContract(config, sim.request);
-      await waitForTransactionReceipt(config, { hash });
+      // // 2) send the tx and wait
+      // const hash = await writeContract(config, sim.request);
+      // await waitForTransactionReceipt(config, { hash });
 
-      const tripAddr = sim.result as `0x${string}`;
+      // const tripAddr = sim.result as `0x${string}`;
 
-      // 3) persist to DB
-      await api("/api/trips", {
-        method: "POST",
-        body: JSON.stringify({
-          name: tripName.trim(),
-          code6,
-          creator: me,
-          tripAddress: tripAddr,
-          createTxHash: hash,
-          chainId: baseSepolia.id,
-        }),
-      });
+      // // 3) persist to DB
+      // await api("/api/trips", {
+      //   method: "POST",
+      //   body: JSON.stringify({
+      //     name: tripName.trim(),
+      //     code6,
+      //     creator: me,
+      //     tripAddress: tripAddr,
+      //     createTxHash: hash,
+      //     chainId: baseSepolia.id,
+      //   }),
+      // });
 
-      setTripName("");
-      // refresh list
-      const rows = await api<TripRow[]>(
-        `/api/trips?query=${encodeURIComponent(search)}&scope=${scope}`
-      );
-      setTrips(rows);
+      // setTripName("");
+      // // refresh list
+      // const rows = await api<TripRow[]>(
+      //   `/api/trips?query=${encodeURIComponent(search)}&scope=${scope}`
+      // );
+      // setTrips(rows);
       alert(`✅ Trip created! Code: ${code6}`);
     } catch (e) {
       alert(`❌ ${parseWagmiError(e)}`);

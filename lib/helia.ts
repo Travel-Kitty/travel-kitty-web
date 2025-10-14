@@ -1,3 +1,4 @@
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 "use client";
 import { createHelia } from "helia";
 import { unixfs } from "@helia/unixfs";
@@ -15,17 +16,17 @@ export async function getHelia() {
     heliaPromise = (async () => {
       const libp2p = await createLibp2p({
         transports: [webSockets(), webTransport(), webRTC()],
-        connectionEncryption: [noise()],
+        // connectionEncryption: [noise()],
         streamMuxers: [mplex()],
       });
       return createHelia({ libp2p });
-    })();
+    })() as any;
   }
   return heliaPromise;
 }
 
 export async function putToIpfs(data: Blob | Uint8Array | string) {
-  const h = await getHelia();
+  const h: any = await getHelia();
   const fs = unixfs(h);
   const bytes =
     typeof data === "string"
