@@ -10,36 +10,52 @@ datasource db {
 
 model User {
   id        String       @id @default(cuid())
-  wallet    String       @unique
+  wallet    String       @unique // lowercased wallet
   createdAt DateTime     @default(now())
-  trips     TripMember[]
+  members   TripMember[] // reverse relation
 }
 
 model Trip {
-  id        String       @id @default(cuid())
-  name      String
-  owner     String // wallet address
-  createdAt DateTime     @default(now())
-  members   TripMember[]
-  expenses  Expense[]
+  id           String       @id @default(cuid())
+  name         String
+  code6        String       @unique // 6-char join code
+  creator      String // wallet (lowercased)
+  tripAddress  String       @unique // TravelKitty address
+  createTxHash String // deploy tx hash
+  chainId      Int
+  createdAt    DateTime     @default(now())
+  members      TripMember[]
+  expenses     Expense[]
+
+  @@index([creator])
+  @@index([code6])
 }
 
 model TripMember {
   id       String   @id @default(cuid())
   tripId   String
-  wallet   String
+  wallet   String // lowercased
   joinedAt DateTime @default(now())
-  trip     Trip     @relation(fields: [tripId], references: [id])
-  user     User     @relation(fields: [wallet], references: [wallet])
+
+  trip Trip  @relation(fields: [tripId], references: [id])
+  // User row might not exist yet; keep optional to avoid FK errors during demo
+  user User? @relation(fields: [wallet], references: [wallet])
+
+  @@unique([tripId, wallet]) // one membership per trip
+  @@index([wallet])
 }
 
 model Expense {
   id         String   @id @default(cuid())
   tripId     String
-  payer      String // wallet address
+  payer      String // wallet (lowercased)
   amountUsd6 Int // USD * 1e6
-  cid        String // ipfs cid for receipt json or image
-  txHash     String? // onchain tx for addExpense
+  cid        String // ipfs cid (JSON)
+  txHash     String? // on-chain tx for addExpense
   createdAt  DateTime @default(now())
-  trip       Trip     @relation(fields: [tripId], references: [id])
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId])
+  @@index([payer])
 }

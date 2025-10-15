@@ -2,6 +2,7 @@ export const ADDR = {
   TRAVEL_KITTY: process.env.NEXT_PUBLIC_TRAVEL_KITTY as `0x${string}`,
   MOCK_USD: process.env.NEXT_PUBLIC_MOCK_USD as `0x${string}`,
   FAUCET: process.env.NEXT_PUBLIC_FAUCET as `0x${string}`,
+  FACTORY: process.env.NEXT_PUBLIC_FACTORY as `0x${string}`,
 };
 
 export const travelKittyAbi = [
@@ -63,5 +64,24 @@ export const faucetAbi = [
     inputs: [],
     outputs: [],
     stateMutability: "nonpayable",
+  },
+] as const;
+
+export const factoryAbi = [
+  {
+    type: "function",
+    name: "createTrip",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "salt", type: "bytes32" }],
+    outputs: [{ name: "trip", type: "address" }],
+  },
+  {
+    type: "event",
+    name: "TripCreated",
+    inputs: [
+      { indexed: true, name: "creator", type: "address" },
+      { indexed: true, name: "trip", type: "address" },
+      { indexed: false, name: "salt", type: "bytes32" },
+    ],
   },
 ] as const;
