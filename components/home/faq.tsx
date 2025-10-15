@@ -67,9 +67,9 @@ export default function Faq() {
           ].map((faq, idx) => (
             <motion.details
               key={idx}
-              className="group rounded-xl border border-border/60 p-5"
+              className="group rounded-xl border border-border/60 p-5 pointer-cursor"
             >
-              <summary className="cursor-pointer list-none text-base font-medium">
+              <summary className="list-none text-base font-medium">
                 <span className="mr-2 inline-block rounded-md bg-muted px-2 py-1 text-xs">
                   Q{idx + 1}
                 </span>{" "}

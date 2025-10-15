@@ -101,10 +101,10 @@ export default function Demo() {
                 className="flex flex-col sm:flex-row gap-3"
                 variants={leftColItem}
               >
-                <button className="rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white transition-transform hover:scale-105">
+                <button className="rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white transition-transform hover:scale-105 pointer-cursor">
                   Launch Demo
                 </button>
-                <button className="rounded-full border border-border/60 bg-background/50 px-6 py-3 text-sm font-semibold hover:bg-muted/60">
+                <button className="rounded-full border border-border/60 bg-background/50 px-6 py-3 text-sm font-semibold hover:bg-muted/60 pointer-cursor">
                   View on Explorer
                 </button>
               </motion.div>

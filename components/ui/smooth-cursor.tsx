@@ -80,6 +80,68 @@ const DefaultCursorSVG: FC = () => {
   );
 };
 
+const PointerCursorSVG: FC = () => {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={32}
+      height={40}
+      viewBox="0 0 32 40"
+      fill="none"
+      style={{ scale: 0.7 }}
+    >
+      <g filter="url(#filter0_d_pointer)">
+        <path
+          d="M8 4C8 2.89543 8.89543 2 10 2C11.1046 2 12 2.89543 12 4V16H14V10C14 8.89543 14.8954 8 16 8C17.1046 8 18 8.89543 18 10V16H20V12C20 10.8954 20.8954 10 22 10C23.1046 10 24 10.8954 24 12V16H26V14C26 12.8954 26.8954 12 28 12C29.1046 12 30 12.8954 30 14V24C30 30.6274 24.6274 36 18 36H16C9.37258 36 4 30.6274 4 24V4C4 2.89543 4.89543 2 6 2C7.10457 2 8 2.89543 8 4Z"
+          fill="black"
+        />
+        <path
+          d="M8 4C8 2.89543 8.89543 2 10 2C11.1046 2 12 2.89543 12 4V16H14V10C14 8.89543 14.8954 8 16 8C17.1046 8 18 8.89543 18 10V16H20V12C20 10.8954 20.8954 10 22 10C23.1046 10 24 10.8954 24 12V16H26V14C26 12.8954 26.8954 12 28 12C29.1046 12 30 12.8954 30 14V24C30 30.6274 24.6274 36 18 36H16C9.37258 36 4 30.6274 4 24V4C4 2.89543 4.89543 2 6 2C7.10457 2 8 2.89543 8 4Z"
+          stroke="white"
+          strokeWidth={1.5}
+        />
+      </g>
+      <defs>
+        <filter
+          id="filter0_d_pointer"
+          x={0}
+          y={0}
+          width={34}
+          height={42}
+          filterUnits="userSpaceOnUse"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood floodOpacity={0} result="BackgroundImageFix" />
+          <feColorMatrix
+            in="SourceAlpha"
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+            result="hardAlpha"
+          />
+          <feOffset dy={2} />
+          <feGaussianBlur stdDeviation={1.5} />
+          <feComposite in2="hardAlpha" operator="out" />
+          <feColorMatrix
+            type="matrix"
+            values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.08 0"
+          />
+          <feBlend
+            mode="normal"
+            in2="BackgroundImageFix"
+            result="effect1_dropShadow_pointer"
+          />
+          <feBlend
+            mode="normal"
+            in="SourceGraphic"
+            in2="effect1_dropShadow_pointer"
+            result="shape"
+          />
+        </filter>
+      </defs>
+    </svg>
+  );
+};
+
 export function SmoothCursor({
   cursor = <DefaultCursorSVG />,
   springConfig = {
@@ -90,6 +152,7 @@ export function SmoothCursor({
   },
 }: Readonly<SmoothCursorProps>) {
   const [isVisible, setIsVisible] = useState(true);
+  const [isPointer, setIsPointer] = useState(false);
   const lastMousePos = useRef<Position>({ x: 0, y: 0 });
   const velocity = useRef<Position>({ x: 0, y: 0 });
   const lastUpdateTime = useRef(Date.now());
@@ -125,9 +188,16 @@ export function SmoothCursor({
       lastMousePos.current = currentPos;
     };
 
+    const checkCursorPointer = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const hasPointerClass = target.closest(".pointer-cursor") !== null;
+      setIsPointer(hasPointerClass);
+    };
+
     const smoothMouseMove = (e: MouseEvent) => {
       const currentPos = { x: e.clientX, y: e.clientY };
       updateVelocity(currentPos);
+      checkCursorPointer(e);
 
       const speed = Math.sqrt(
         Math.pow(velocity.current.x, 2) + Math.pow(velocity.current.y, 2)
@@ -206,7 +276,7 @@ export function SmoothCursor({
         top: cursorY,
         translateX: "-50%",
         translateY: "-50%",
-        rotate: rotation,
+        rotate: isPointer ? 0 : rotation,
         scale: scale,
         zIndex: 100,
         pointerEvents: "none",
@@ -220,7 +290,7 @@ export function SmoothCursor({
         damping: 30,
       }}
     >
-      {cursor}
+      {isPointer ? <PointerCursorSVG /> : cursor}
     </motion.div>
   );
 }

@@ -84,11 +84,11 @@ export default function Hero() {
             variants={item}
             className="flex flex-col sm:flex-row gap-3"
           >
-            <button className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm sm:text-base font-semibold text-white transition-transform hover:scale-105">
+            <button className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm sm:text-base font-semibold text-white transition-transform hover:scale-105 pointer-cursor">
               <span>Try Live Demo</span>
               <ArrowRight className="h-5 w-5" />
             </button>
-            <button className="inline-flex items-center justify-center gap-2 rounded-full border border-border/60 bg-background/50 px-6 py-3 text-sm sm:text-base font-semibold hover:bg-muted/60">
+            <button className="inline-flex items-center justify-center gap-2 rounded-full border border-border/60 bg-background/50 px-6 py-3 text-sm sm:text-base font-semibold hover:bg-muted/60 pointer-cursor">
               <Play className="h-5 w-5" />
               <span>Watch Demo</span>
             </button>

@@ -60,7 +60,7 @@ export default function Cta() {
           viewport={{ once: true, amount: 0.25 }}
         >
           <motion.button
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white pointer-cursor"
             variants={item}
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.98 }}
@@ -72,7 +72,7 @@ export default function Cta() {
           <motion.a
             href="https://github.com/Travel-Kitty"
             target="_blank"
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-border/60 bg-background/50 px-6 py-3 text-sm font-semibold hover:bg-muted/60"
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-border/60 bg-background/50 px-6 py-3 text-sm font-semibold hover:bg-muted/60 pointer-cursor"
             variants={item}
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.98 }}

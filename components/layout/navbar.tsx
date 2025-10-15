@@ -23,20 +23,32 @@ export default function Navbar() {
           </div>
 
           <div className="hidden md:flex items-center gap-6 pr-4">
-            <a href="#features" className="text-sm hover:text-primary">
+            <a
+              href="#features"
+              className="text-sm hover:text-primary pointer-cursor"
+            >
               Features
             </a>
-            <a href="#how-it-works" className="text-sm hover:text-primary">
+            <a
+              href="#how-it-works"
+              className="text-sm hover:text-primary pointer-cursor"
+            >
               How it Works
             </a>
-            <a href="#demo" className="text-sm hover:text-primary">
+            <a
+              href="#demo"
+              className="text-sm hover:text-primary pointer-cursor"
+            >
               Demo
             </a>
-            <a href="#faq" className="text-sm hover:text-primary">
+            <a
+              href="#faq"
+              className="text-sm hover:text-primary pointer-cursor"
+            >
               FAQ
             </a>
             <AnimatedThemeToggler />
-            <button className="rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-5 py-2 text-sm font-medium text-white transition-transform hover:scale-105">
+            <button className="rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-5 py-2 text-sm font-medium text-white transition-transform hover:scale-105 pointer-cursor">
               Launch App →
             </button>
           </div>
