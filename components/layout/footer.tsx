@@ -1,4 +1,7 @@
 import React from "react";
+import Image from "next/image";
+
+import Logo from "@/public/images/logo.png";
 
 export default function Footer() {
   return (
@@ -7,9 +10,11 @@ export default function Footer() {
         <div className="mb-8 grid gap-6 md:grid-cols-4">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 font-bold text-white">
-                TK
-              </div>
+              <Image
+                src={Logo}
+                alt="Travel Kitty Logo"
+                className="h-10 w-10 rounded-xl"
+              />
               <span className="font-semibold">Travel Kitty</span>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground">
