@@ -4,6 +4,7 @@ import Image from "next/image";
 
 import { AnimatedThemeToggler } from "../ui/animated-theme-toggler";
 import Logo from "@/public/images/logo.png";
+import Link from "next/link";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -48,9 +49,11 @@ export default function Navbar() {
               FAQ
             </a>
             <AnimatedThemeToggler />
-            <button className="rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-5 py-2 text-sm font-medium text-white transition-transform hover:scale-105 pointer-cursor">
-              Launch App →
-            </button>
+            <Link href="/trip" className="pointer-cursor">
+              <button className="rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-5 py-2 text-sm font-medium text-white transition-transform hover:scale-105 pointer-cursor">
+                Launch App →
+              </button>
+            </Link>
           </div>
 
           <div className="flex items-center gap-2 md:hidden pr-2">
@@ -83,9 +86,11 @@ export default function Navbar() {
                 {item.label}
               </a>
             ))}
-            <button className="mt-2 w-full rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-2 text-sm font-semibold text-white">
-              Launch App →
-            </button>
+            <Link href="/trip" className="pointer-cursor">
+              <button className="mt-2 w-full rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-2 text-sm font-semibold text-white">
+                Launch App →
+              </button>
+            </Link>
           </div>
         </div>
       )}

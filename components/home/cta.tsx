@@ -1,4 +1,5 @@
 import React from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, Github } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 
@@ -28,6 +29,9 @@ const item: Variants = {
 };
 
 export default function Cta() {
+  // variables
+  const router = useRouter();
+
   return (
     <section className="px-4 sm:px-6 lg:px-8 py-16">
       <div className="mx-auto max-w-4xl text-center">
@@ -64,6 +68,7 @@ export default function Cta() {
             variants={item}
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.98 }}
+            onClick={() => router.push("/trip")}
           >
             <span>Start for Free</span>
             <ArrowRight className="h-5 w-5" />
