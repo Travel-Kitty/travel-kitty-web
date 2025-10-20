@@ -8,6 +8,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
+import { keccak256, toBytes } from "viem";
 import {
   simulateContract,
   writeContract,
@@ -17,7 +18,7 @@ import {
 import { baseSepolia } from "wagmi/chains";
 import Link from "next/link";
 import { config } from "@/lib/wagmi";
-import { ADDR, /*factoryAbi,*/ faucetAbi } from "@/lib/contracts";
+import { ADDR, factoryAbi, faucetAbi } from "@/lib/contracts";
 
 // ---------- small utils ----------
 const basescanTx = (hash: string) => `https://sepolia.basescan.org/tx/${hash}`;
@@ -94,16 +95,35 @@ export default function Home() {
   useWaitForTransactionReceipt({ hash: pendingHash });
 
   // ---------- load trips when connected / filters change ----------
+  // useEffect(() => {
+  //   if (!isConnected) return;
+  //   (async () => {
+  //     try {
+  //       setLoadingTrips(true);
+  //       // Implement these server routes in your app:
+  //       // GET /api/trips?query=&scope=all|joined|mine
+  //       const rows = await api<TripRow[]>(
+  //         `/api/trips?query=${encodeURIComponent(search)}&scope=${scope}`
+  //       );
+  //       setTrips(rows);
+  //     } catch (e) {
+  //       console.error("Load trips failed:", e);
+  //     } finally {
+  //       setLoadingTrips(false);
+  //     }
+  //   })();
+  // }, [isConnected, scope, search]);
   useEffect(() => {
     if (!isConnected) return;
     (async () => {
       try {
         setLoadingTrips(true);
-        // Implement these server routes in your app:
-        // GET /api/trips?query=&scope=all|joined|mine
-        const rows = await api<TripRow[]>(
-          `/api/trips?query=${encodeURIComponent(search)}&scope=${scope}`
-        );
+        const q = new URLSearchParams({
+          query: search,
+          scope,
+          me: (address ?? "").toLowerCase(), // ← add this
+        }).toString();
+        const rows = await api<TripRow[]>(`/api/trips?${q}`);
         setTrips(rows);
       } catch (e) {
         console.error("Load trips failed:", e);
@@ -111,7 +131,7 @@ export default function Home() {
         setLoadingTrips(false);
       }
     })();
-  }, [isConnected, scope, search]);
+  }, [isConnected, scope, search, address]);
 
   // ---------- claim faucet with cooldown explanation ----------
   async function handleClaim() {
@@ -167,41 +187,42 @@ export default function Home() {
     try {
       const code6 = makeCode6();
 
-      // 1) simulate to get the future address returned by factory
-      // const sim = await simulateContract(config, {
-      //   address: ADDR.FACTORY,
-      //   abi: factoryAbi,
-      //   functionName: "createTrip",
-      //   args: [address as `0x${string}`],
-      //   chainId: baseSepolia.id,
-      //   account: address as `0x${string}`,
-      // });
+      // ✅ bikin salt 32 byte
+      const salt = keccak256(
+        toBytes(`${address.toLowerCase()}:${tripName.trim()}:${Date.now()}`)
+      );
 
-      // // 2) send the tx and wait
-      // const hash = await writeContract(config, sim.request);
-      // await waitForTransactionReceipt(config, { hash });
+      // 1) simulate pakai salt (bytes32)
+      const sim = await simulateContract(config, {
+        address: ADDR.FACTORY,
+        abi: factoryAbi, // pastikan abi-nya createTrip(bytes32) returns (address)
+        functionName: "createTrip",
+        args: [salt], // ✅ kirim bytes32, bukan address
+        account: address as `0x${string}`,
+      });
 
-      // const tripAddr = sim.result as `0x${string}`;
+      // 2) kirim tx persis dari request simulasi
+      const hash = await writeContract(config, sim.request);
+      const receipt = await waitForTransactionReceipt(config, { hash });
 
-      // // 3) persist to DB
-      // await api("/api/trips", {
-      //   method: "POST",
-      //   body: JSON.stringify({
-      //     name: tripName.trim(),
-      //     code6,
-      //     creator: me,
-      //     tripAddress: tripAddr,
-      //     createTxHash: hash,
-      //     chainId: baseSepolia.id,
-      //   }),
-      // });
+      // 3) ambil address trip
+      const tripAddr = sim.result as `0x${string}`;
 
-      // setTripName("");
-      // // refresh list
-      // const rows = await api<TripRow[]>(
-      //   `/api/trips?query=${encodeURIComponent(search)}&scope=${scope}`
-      // );
-      // setTrips(rows);
+      // 4) simpan ke DB kamu
+      await api("/api/trips", {
+        method: "POST",
+        body: JSON.stringify({
+          name: tripName.trim(),
+          code6,
+          creator: address.toLowerCase(),
+          tripAddress: tripAddr,
+          createTxHash: hash,
+          chainId: 84532,
+        }),
+      });
+
+      setTripName("");
+      // refresh list, dll...
       alert(`✅ Trip created! Code: ${code6}`);
     } catch (e) {
       alert(`❌ ${parseWagmiError(e)}`);
@@ -236,7 +257,7 @@ export default function Home() {
 
   // ---------- render ----------
   return (
-    <main className="space-y-10">
+    <main className="space-y-10 !cursor-default">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">🐾 Travel Kitty (Alpha)</h1>
         <ConnectButton />
