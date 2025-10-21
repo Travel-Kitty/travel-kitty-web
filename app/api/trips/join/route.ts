@@ -1,48 +1,48 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// app/api/trips/join/route.ts
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma"; // pastikan file ini export prisma client
+import { ok, fail, safeJson, isEthAddress } from "@/utils/response";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+
+type JoinInput = { code6?: string; wallet?: string };
 
 export async function POST(req: Request) {
   try {
-    const { code6, wallet } = (await req.json()) as {
-      code6?: string;
-      wallet?: string;
-    };
+    const { code6, wallet } = (await safeJson<JoinInput>(req)) || {};
 
-    if (!code6 || !/^[A-Z0-9]{6}$/.test(code6))
-      return NextResponse.json({ error: "INVALID_CODE" }, { status: 400 });
+    if (!code6 || !/^[A-Z0-9]{6}$/.test(code6)) {
+      return fail("INVALID_CODE", "code6 must be 6 chars [A-Z0-9]", 400);
+    }
+    if (!isEthAddress(wallet)) {
+      return fail("INVALID_WALLET", "wallet must be a valid 0x address", 400);
+    }
 
-    if (!wallet || !wallet.startsWith("0x") || wallet.length !== 42)
-      return NextResponse.json({ error: "INVALID_WALLET" }, { status: 400 });
+    const me = wallet!.toLowerCase();
 
-    const me = wallet.toLowerCase();
-
-    // 1) cari trip
     const trip = await prisma.trip.findUnique({ where: { code6 } });
-    if (!trip)
-      return NextResponse.json({ error: "TRIP_NOT_FOUND" }, { status: 404 });
+    if (!trip) {
+      return fail("TRIP_NOT_FOUND", "Trip not found", 404);
+    }
 
-    // 2) pastikan user ada
     await prisma.user.upsert({
       where: { wallet: me },
       update: {},
       create: { wallet: me },
     });
 
-    // 3) join (idempotent)
     await prisma.tripMember.upsert({
       where: { tripId_wallet: { tripId: trip.id, wallet: me } },
       update: {},
       create: { tripId: trip.id, wallet: me },
     });
 
-    return NextResponse.json({ ok: true, tripId: trip.id });
+    return ok<{ tripId: string }>({ tripId: trip.id });
   } catch (e: any) {
-    console.error("join error:", e);
-    return NextResponse.json(
-      { error: e?.message ?? "JOIN_FAILED" },
-      { status: 500 }
-    );
+    if (e?.__isBadJson) {
+      return fail("BAD_JSON", "Request body must be valid JSON", 400);
+    }
+    return fail("JOIN_FAILED", "Failed to join trip", 500, {
+      reason: e?.message,
+    });
   }
 }
