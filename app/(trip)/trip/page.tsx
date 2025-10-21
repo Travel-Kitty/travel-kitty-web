@@ -19,6 +19,12 @@ import { baseSepolia } from "wagmi/chains";
 import Link from "next/link";
 import { config } from "@/lib/wagmi";
 import { ADDR, factoryAbi, faucetAbi } from "@/lib/contracts";
+import {
+  useTripList,
+  useCreateTrip,
+  useJoinTrip,
+} from "@/hooks/handler-request/use-trip";
+import { type TripRow } from "@/types";
 
 // ---------- small utils ----------
 const basescanTx = (hash: string) => `https://sepolia.basescan.org/tx/${hash}`;
@@ -48,28 +54,9 @@ function parseWagmiError(e: unknown): string {
 }
 
 // ---------- types ----------
-type TripRow = {
-  id: string;
-  name: string;
-  code6: string;
-  creator: string;
-  tripAddress: string;
-  createTxHash: string;
-  chainId: number;
-  joined?: boolean; // computed by API
-  mine?: boolean; // computed by API (creator)
-};
+type TripRowLocal = TripRow;
 
-// API helper (adjust to your routes)
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(url, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
-    cache: "no-store",
-  });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
+// ~~ REMOVED old api<T> helper; now using TanStack hooks ~~
 
 export default function Home() {
   const { address, isConnected } = useAccount();
@@ -86,52 +73,27 @@ export default function Home() {
   const [claiming, setClaiming] = useState(false);
   const [claimMsg, setClaimMsg] = useState<string | null>(null);
 
-  // ----- trips list
-  const [trips, setTrips] = useState<TripRow[]>([]);
-  const [loadingTrips, setLoadingTrips] = useState(false);
+  // ----- trips list via TanStack Query
+  const {
+    data: trips = [],
+    isLoading: loadingTrips,
+    isError: errorTrips,
+    error: tripsError,
+    refetch: refetchTrips,
+  } = useTripList({
+    query: search,
+    scope,
+    me: address,
+    enabled: !!isConnected,
+  });
 
   // wagmi write (for completeness; we mostly use actions to await receipts)
   const { data: pendingHash } = useWriteContract();
   useWaitForTransactionReceipt({ hash: pendingHash });
 
-  // ---------- load trips when connected / filters change ----------
-  // useEffect(() => {
-  //   if (!isConnected) return;
-  //   (async () => {
-  //     try {
-  //       setLoadingTrips(true);
-  //       // Implement these server routes in your app:
-  //       // GET /api/trips?query=&scope=all|joined|mine
-  //       const rows = await api<TripRow[]>(
-  //         `/api/trips?query=${encodeURIComponent(search)}&scope=${scope}`
-  //       );
-  //       setTrips(rows);
-  //     } catch (e) {
-  //       console.error("Load trips failed:", e);
-  //     } finally {
-  //       setLoadingTrips(false);
-  //     }
-  //   })();
-  // }, [isConnected, scope, search]);
-  useEffect(() => {
-    if (!isConnected) return;
-    (async () => {
-      try {
-        setLoadingTrips(true);
-        const q = new URLSearchParams({
-          query: search,
-          scope,
-          me: (address ?? "").toLowerCase(), // ← add this
-        }).toString();
-        const rows = await api<TripRow[]>(`/api/trips?${q}`);
-        setTrips(rows);
-      } catch (e) {
-        console.error("Load trips failed:", e);
-      } finally {
-        setLoadingTrips(false);
-      }
-    })();
-  }, [isConnected, scope, search, address]);
+  // Mutations
+  const createTripMutation = useCreateTrip();
+  const joinTripMutation = useJoinTrip();
 
   // ---------- claim faucet with cooldown explanation ----------
   async function handleClaim() {
@@ -208,21 +170,17 @@ export default function Home() {
       // 3) ambil address trip
       const tripAddr = sim.result as `0x${string}`;
 
-      // 4) simpan ke DB kamu
-      await api("/api/trips", {
-        method: "POST",
-        body: JSON.stringify({
-          name: tripName.trim(),
-          code6,
-          creator: address.toLowerCase(),
-          tripAddress: tripAddr,
-          createTxHash: hash,
-          chainId: 84532,
-        }),
+      // 4) simpan ke DB kamu (via TanStack mutation)
+      await createTripMutation.mutateAsync({
+        name: tripName.trim(),
+        code6,
+        creator: address.toLowerCase(),
+        tripAddress: tripAddr,
+        createTxHash: hash,
+        chainId: 84532,
       });
 
       setTripName("");
-      // refresh list, dll...
       alert(`✅ Trip created! Code: ${code6}`);
     } catch (e) {
       alert(`❌ ${parseWagmiError(e)}`);
@@ -239,16 +197,11 @@ export default function Home() {
     if (!/^[A-Z0-9]{6}$/.test(code))
       return alert("Enter a valid 6-character code");
     try {
-      await api("/api/trips/join", {
-        method: "POST",
-        body: JSON.stringify({ code6: code, wallet: me }),
-      });
+      await joinTripMutation.mutateAsync({ code6: code, wallet: me as string });
       setJoinCode("");
-      const rows = await api<TripRow[]>(
-        `/api/trips?query=${encodeURIComponent(search)}&scope=${scope}`
-      );
-      setTrips(rows);
       alert("✅ Joined trip!");
+      // invalidate already handled in hook; optional manual refetch:
+      // await refetchTrips();
     } catch (e) {
       alert(`❌ ${parseWagmiError(e)}`);
       console.error(e);
@@ -289,10 +242,12 @@ export default function Home() {
                 </label>
                 <button
                   onClick={handleCreateTrip}
-                  disabled={creating}
+                  disabled={creating || createTripMutation.isPending}
                   className="rounded-lg bg-white/10 px-4 py-2 disabled:opacity-50"
                 >
-                  {creating ? "Creating…" : "Create Trip"}
+                  {creating || createTripMutation.isPending
+                    ? "Creating…"
+                    : "Create Trip"}
                 </button>
                 <p className="text-xs text-neutral-500">
                   A new on-chain kitty is deployed via the Factory. You’ll
@@ -318,9 +273,10 @@ export default function Home() {
                     />
                     <button
                       onClick={handleJoinByCode}
-                      className="rounded-lg bg-white/10 px-4 py-2"
+                      disabled={joinTripMutation.isPending}
+                      className="rounded-lg bg-white/10 px-4 py-2 disabled:opacity-50"
                     >
-                      Join
+                      {joinTripMutation.isPending ? "Joining…" : "Join"}
                     </button>
                   </div>
                 </label>
@@ -383,9 +339,15 @@ export default function Home() {
               {loadingTrips && (
                 <p className="py-6 text-neutral-400">Loading…</p>
               )}
-              {!loadingTrips && trips.length === 0 && (
+              {!loadingTrips && trips.length === 0 && !errorTrips && (
                 <p className="py-6 text-neutral-400">
                   No trips match your filter.
+                </p>
+              )}
+              {errorTrips && (
+                <p className="py-6 text-red-400">
+                  Failed to load trips:{" "}
+                  {(tripsError as Error)?.message ?? "Unknown error"}
                 </p>
               )}
               {trips.map((t) => (
