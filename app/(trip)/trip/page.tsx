@@ -25,6 +25,10 @@ import {
   useJoinTrip,
 } from "@/hooks/handler-request/use-trip";
 import { type TripRow } from "@/types";
+import {
+  ReceiptCreateDialog,
+  type ReceiptCreateForm,
+} from "@/components/trip/receipt-create-dialog";
 
 // ---------- small utils ----------
 const basescanTx = (hash: string) => `https://sepolia.basescan.org/tx/${hash}`;
@@ -208,6 +212,48 @@ export default function Home() {
     }
   }
 
+  // dialog state
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+
+  // submit dari dialog -> lanjutkan proses deploy + sim seperti sebelumnya
+  const handleSubmitCreateDialog = async (values: ReceiptCreateForm) => {
+    if (!address) throw new Error("Wallet not connected");
+    setCreating(true);
+    try {
+      const code6 = makeCode6();
+      const salt = keccak256(
+        toBytes(`${address.toLowerCase()}:${values.name.trim()}:${Date.now()}`)
+      );
+
+      const sim = await simulateContract(config, {
+        address: ADDR.FACTORY,
+        abi: factoryAbi,
+        functionName: "createTrip",
+        args: [salt],
+        account: address as `0x${string}`,
+      });
+
+      const hash = await writeContract(config, sim.request);
+      const receipt = await waitForTransactionReceipt(config, { hash });
+
+      const tripAddr = sim.result as `0x${string}`;
+
+      await createTripMutation.mutateAsync({
+        name: values.name.trim(),
+        code6,
+        creator: address.toLowerCase(),
+        tripAddress: tripAddr,
+        createTxHash: hash,
+        chainId: 84532,
+      });
+
+      // NOTE: values.items + values.currency tersedia kalau nanti mau disimpan sebagai expenses.
+      alert(`✅ Trip created! Code: ${code6}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
   // ---------- render ----------
   return (
     <main className="space-y-10 !cursor-default">
@@ -231,22 +277,12 @@ export default function Home() {
             <div className="grid gap-4 md:grid-cols-2">
               {/* Create trip */}
               <div className="rounded-lg border border-neutral-800 p-4 space-y-3">
-                <label className="space-y-1 block">
-                  <span className="text-sm text-neutral-400">Trip name</span>
-                  <input
-                    value={tripName}
-                    onChange={(e) => setTripName(e.target.value)}
-                    className="w-full rounded-md bg-neutral-900 px-3 py-2"
-                    placeholder="e.g., Bali Offsite"
-                  />
-                </label>
                 <button
-                  onClick={handleCreateTrip}
-                  disabled={creating || createTripMutation.isPending}
+                  onClick={() => setOpenCreateDialog(true)}
                   className="rounded-lg bg-white/10 px-4 py-2 disabled:opacity-50"
                 >
                   {creating || createTripMutation.isPending
-                    ? "Creating…"
+                    ? "Processing…"
                     : "Create Trip"}
                 </button>
                 <p className="text-xs text-neutral-500">
@@ -254,6 +290,12 @@ export default function Home() {
                   receive a 6-char join code.
                 </p>
               </div>
+
+              <ReceiptCreateDialog
+                open={openCreateDialog}
+                onOpenChange={setOpenCreateDialog}
+                onSubmitFinal={handleSubmitCreateDialog}
+              />
 
               {/* Join by code + faucet */}
               <div className="rounded-lg border border-neutral-800 p-4 space-y-3">
