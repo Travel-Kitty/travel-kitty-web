@@ -29,6 +29,7 @@ import {
   ReceiptCreateDialog,
   type ReceiptCreateForm,
 } from "@/components/trip/receipt-create-dialog";
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 
 // ---------- small utils ----------
 const basescanTx = (hash: string) => `https://sepolia.basescan.org/tx/${hash}`;
@@ -259,6 +260,7 @@ export default function Home() {
     <main className="space-y-10 !cursor-default">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">🐾 Travel Kitty (Alpha)</h1>
+        <AnimatedThemeToggler />
         <ConnectButton />
       </header>
 
