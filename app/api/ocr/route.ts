@@ -28,18 +28,118 @@ function toBase64(ab: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// Extract first valid JSON object from a string (LLM sometimes adds prose)
-function extractJson(text: string) {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start >= 0 && end > start) {
-    try {
-      return JSON.parse(text.slice(start, end + 1));
-    } catch {
-      // ignore
+function contentToText(raw: unknown): string {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((c) =>
+        c && typeof c === "object" && "text" in (c as any)
+          ? String((c as any).text ?? "")
+          : ""
+      )
+      .join("")
+      .trim();
+  }
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function stripFences(s: string): string {
+  let t = s.trim();
+  t = t.replace(/^```(?:json)?\s*/i, "");
+  t = t.replace(/\s*```$/i, "");
+  t = t.replace(/```(?:json)?/gi, "");
+  return t.trim();
+}
+
+function findBalancedJson(s: string): string | null {
+  const t = stripFences(s);
+  const start = t.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0,
+    inStr = false,
+    esc = false;
+  for (let i = start; i < t.length; i++) {
+    const ch = t[i];
+    if (inStr) {
+      if (esc) {
+        esc = false;
+        continue;
+      }
+      if (ch === "\\") {
+        esc = true;
+        continue;
+      }
+      if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = true;
+      continue;
+    }
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return t.slice(start, i + 1); // balanced!
     }
   }
   return null;
+}
+
+function removeTrailingCommas(s: string): string {
+  return s.replace(/,\s*(\}|\])/g, "$1");
+}
+
+function tryCloseBrackets(s: string): string {
+  const t = stripFences(s);
+  let inStr = false,
+    esc = false,
+    openCurl = 0,
+    closeCurl = 0,
+    openSq = 0,
+    closeSq = 0;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (inStr) {
+      if (esc) {
+        esc = false;
+        continue;
+      }
+      if (ch === "\\") {
+        esc = true;
+        continue;
+      }
+      if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = true;
+      continue;
+    }
+    if (ch === "{") openCurl++;
+    else if (ch === "}") closeCurl++;
+    else if (ch === "[") openSq++;
+    else if (ch === "]") closeSq++;
+  }
+  const addCurl = Math.max(0, openCurl - closeCurl);
+  const addSq = Math.max(0, openSq - closeSq);
+  return t + "]".repeat(addSq) + "}".repeat(addCurl);
+}
+
+function parseOcrJson(text: string): OcrResult {
+  const t0 = stripFences(text);
+  try {
+    return JSON.parse(t0) as OcrResult;
+  } catch {}
+  const balanced = findBalancedJson(text);
+  if (balanced) {
+    try {
+      return JSON.parse(removeTrailingCommas(balanced)) as OcrResult;
+    } catch {}
+  }
+  const closed = tryCloseBrackets(text);
+  try {
+    return JSON.parse(removeTrailingCommas(closed)) as OcrResult;
+  } catch {}
+  throw new Error("FAILED_PARSE_JSON");
 }
 
 async function callOpenRouter(args: {
@@ -50,20 +150,44 @@ async function callOpenRouter(args: {
 }): Promise<OcrResult> {
   const { key, model, dataUrl, hint } = args;
 
-  const prompt = `
-    You are an OCR+IE assistant for receipts/invoices. 
-    Extract structured fields and return ONLY valid JSON (no prose):
-    {
-      "total": number,
-      "currency": "USD" | "IDR" | "EUR" | "SGD" | "JPY" | string,
-      "merchant": string | null,
-      "items": [{"name": string, "qty": number|null, "price": number|null}] | [],
-      "note": string | null
-    }
-    - Prefer the printed currency on the receipt; if missing, infer from context, default "USD".
-    - Numbers must use dot decimal (e.g., 15.5) not commas. ${
-      hint ? `- User hint: ${hint}` : ""
-    }`.trim();
+  const userPrompt = `
+You are an OCR+IE assistant for receipts/invoices.
+Extract structured fields and return ONLY valid JSON (no prose):
+{
+  "total": number,
+  "currency": "USD" | "IDR" | "EUR" | "SGD" | "JPY" | string,
+  "merchant": string | null,
+  "items": [{"name": string, "qty": number|null, "price": number|null}] | [],
+  "note": string | null
+}
+- Prefer the printed currency on the receipt; if missing, infer from context, default "USD".
+- Numbers must use dot decimal (e.g., 15.5) not commas.
+${hint ? `- User hint: ${hint}` : ""}`.trim();
+
+  const body = {
+    model,
+    messages: [
+      {
+        role: "system",
+        content: [
+          {
+            type: "text",
+            text: "You are an OCR+IE assistant for receipts/invoices. Return ONLY valid JSON.",
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: userPrompt },
+          { type: "image_url", image_url: { url: dataUrl } },
+        ],
+      },
+    ],
+    temperature: 0,
+    max_tokens: 768,
+    response_format: { type: "json_object" as const },
+  };
 
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: "POST",
@@ -73,19 +197,7 @@ async function callOpenRouter(args: {
       "HTTP-Referer": APP_URL,
       "X-Title": APP_NAME,
     },
-    body: JSON.stringify({
-      model,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: dataUrl } },
-          ],
-        },
-      ],
-      response_format: { type: "json_object" },
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -95,25 +207,20 @@ async function callOpenRouter(args: {
     throw err;
   }
 
-  const json = await res.json();
-  const content =
-    json?.choices?.[0]?.message?.content ??
-    json?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments ??
+  const data = await res.json();
+  const raw =
+    data?.choices?.[0]?.message?.content ??
+    data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments ??
     "";
 
-  if (typeof content === "object" && content) return content as OcrResult;
-
-  if (typeof content === "string") {
-    try {
-      return JSON.parse(content) as OcrResult;
-    } catch {
-      const recovered = extractJson(content);
-      if (recovered) return recovered as OcrResult;
-      throw new Error("FAILED_PARSE_JSON");
-    }
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    return raw as OcrResult;
   }
 
-  throw new Error("EMPTY_OCR_RESPONSE");
+  const text = contentToText(raw);
+  if (!text) throw new Error("EMPTY_OCR_RESPONSE");
+
+  return parseOcrJson(text);
 }
 
 export async function POST(req: NextRequest) {
@@ -137,7 +244,7 @@ export async function POST(req: NextRequest) {
     const ab = await file.arrayBuffer();
     const b64 = toBase64(ab);
     const mime = file.type || "image/png";
-    const dataUrl = `data:${mime};base64=${b64}`;
+    const dataUrl = `data:${mime};base64,${b64}`;
 
     let lastErr: any = null;
     for (const key of OPENROUTER_KEYS) {
