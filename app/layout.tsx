@@ -1,6 +1,7 @@
 import "./globals.css";
 import "@rainbow-me/rainbowkit/styles.css";
 import { headers } from "next/headers";
+import { ThemeProvider } from "next-themes";
 import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 
@@ -25,11 +26,17 @@ export default function RootLayout({
         <WagmiProvider config={config}>
           <RQProvider>
             <RainbowKitProvider>
-              <div
-              // className="mx-auto max-w-4xl p-6"
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
               >
-                {children}
-              </div>
+                <div
+                // className="mx-auto max-w-4xl p-6"
+                >
+                  {children}
+                </div>
+              </ThemeProvider>
             </RainbowKitProvider>
           </RQProvider>
         </WagmiProvider>

@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import { ThemeProvider } from "next-themes";
 
 import { SmoothCursor } from "@/components/ui/smooth-cursor";
 import Hero from "@/components/home/hero";
@@ -16,20 +15,18 @@ import Navbar from "@/components/layout/navbar";
 
 export default function TravelKittyLandingPage() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background text-foreground overflow-x-hidden !cursor-none">
-        <SmoothCursor />
-        <Navbar />
-        <Hero />
-        <Features />
-        <HowWorks />
-        <Demo />
-        <Testimonial />
-        <Architecture />
-        <Faq />
-        <Cta />
-        <Footer />
-      </div>
-    </ThemeProvider>
+    <main className="min-h-screen bg-gradient-to-br from-background via-background to-background text-foreground overflow-x-hidden !cursor-none">
+      <SmoothCursor />
+      <Navbar />
+      <Hero />
+      <Features />
+      <HowWorks />
+      <Demo />
+      <Testimonial />
+      <Architecture />
+      <Faq />
+      <Cta />
+      <Footer />
+    </main>
   );
 }
