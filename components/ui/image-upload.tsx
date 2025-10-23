@@ -56,21 +56,18 @@ export function ImageUpload({
   );
 
   // Build preview URL
+  // Build preview URL
   useEffect(() => {
     if (!value) {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
       return;
     }
     const url = URL.createObjectURL(value);
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return url;
-    });
+    setPreviewUrl(url);
     return () => {
       URL.revokeObjectURL(url);
     };
-  }, [value, previewUrl]);
+  }, [value]);
 
   return (
     <div className={cn("space-y-2", className)}>
