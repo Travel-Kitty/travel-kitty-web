@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ok, fail } from "@/utils/response";
 import { prisma } from "@/lib/prisma";
 
