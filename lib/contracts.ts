@@ -35,6 +35,20 @@ export const travelKittyAbi = [
     ],
     outputs: [],
   },
+  {
+    type: "function",
+    name: "getMembers",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address[]" }],
+  },
+  {
+    type: "function",
+    name: "getBalance",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ name: "", type: "int256" }], // signed int, akan jadi bigint (+/-)
+  },
 ] as const;
 
 export const erc20Abi = [

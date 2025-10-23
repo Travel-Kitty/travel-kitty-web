@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
@@ -13,6 +14,11 @@ import {
   Copy,
   CheckCircle2,
 } from "lucide-react";
+import {
+  readContract,
+  writeContract,
+  waitForTransactionReceipt,
+} from "wagmi/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,9 +39,12 @@ import {
 } from "@/hooks/handler-request/use-trip";
 import { useOnchainMembers } from "@/hooks/handler-request/use-onchain";
 import { fmt } from "@/utils/utils";
+import { travelKittyAbi, erc20Abi, ADDR } from "@/lib/contracts";
+import { config } from "@/lib/wagmi";
 
 export default function TripPage() {
   const params = useParams<{ id: string }>();
+  const [settling, setSettling] = useState<boolean>(false);
   const { address } = useAccount();
 
   const { data: trip, isLoading: loadingTrip } = useTripDetail(params.id);
@@ -45,6 +54,9 @@ export default function TripPage() {
     useOnchainMembers((trip?.tripAddress as `0x${string}`) || null);
 
   const amCreator = !!trip && address?.toLowerCase() === trip.creator;
+  const members = (chainMembers?.length ? chainMembers : dbMembers) as string[];
+  const me = (address ?? "").toLowerCase();
+  const memberIndex = members.findIndex((m) => m.toLowerCase() === me);
 
   const receiptItems: Array<{
     name?: string;
@@ -57,6 +69,100 @@ export default function TripPage() {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied to clipboard!`);
   };
+
+  async function handleSettleUp() {
+    try {
+      if (!trip?.tripAddress) throw new Error("Missing trip contract address");
+      if (!members || members.length < 2) throw new Error("Not enough members");
+      if (memberIndex < 0) throw new Error("You are not a member of this trip");
+
+      setSettling(true);
+
+      // 1) Read all balances (int256) for members
+      const balances = await Promise.all(
+        members.map(
+          (m) =>
+            readContract(config, {
+              address: trip.tripAddress as `0x${string}`,
+              abi: travelKittyAbi,
+              functionName: "getBalance",
+              args: [m as `0x${string}`],
+            }) as Promise<bigint>
+        )
+      );
+
+      const myBal = balances[memberIndex]; // int256 as bigint
+      if (myBal >= 0n) {
+        toast.info("You have no debt to settle.");
+        return;
+      }
+
+      // 2) Build creditor list (only positives)
+      type Cred = { addr: `0x${string}`; amt: bigint };
+      const creditors: Cred[] = [];
+      for (let i = 0; i < members.length; i++) {
+        if (i === memberIndex) continue; // skip self
+        const b = balances[i];
+        if (b > 0n) {
+          creditors.push({ addr: members[i] as `0x${string}`, amt: b });
+        }
+      }
+      if (creditors.length === 0) {
+        toast.info("No creditors found.");
+        return;
+      }
+
+      // Sort creditors (largest first helps reduce txs, but any order works)
+      creditors.sort((a, b) => (a.amt > b.amt ? -1 : a.amt < b.amt ? 1 : 0));
+
+      // Total I owe (positive amount in USD*1e6)
+      let remaining = -myBal; // turn negative into positive
+
+      // 3) Single approval for total owed
+      //    Approve TravelKitty to pull mUSD from my wallet up to `remaining`
+      const approveHash = await writeContract(config, {
+        address: ADDR.MOCK_USD,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [trip.tripAddress as `0x${string}`, remaining],
+      });
+      await waitForTransactionReceipt(config, { hash: approveHash });
+
+      // 4) Greedy settle: pay each creditor until my debt is 0
+      for (const c of creditors) {
+        if (remaining === 0n) break;
+        const pay = remaining < c.amt ? remaining : c.amt;
+
+        const settleHash = await writeContract(config, {
+          address: trip.tripAddress as `0x${string}`,
+          abi: travelKittyAbi,
+          functionName: "settleToken",
+          args: [c.addr, pay, ADDR.MOCK_USD],
+        });
+        await waitForTransactionReceipt(config, { hash: settleHash });
+
+        remaining -= pay;
+      }
+
+      if (remaining === 0n) {
+        toast.success("✅ All your debts are settled with mUSD!");
+      } else {
+        // This can happen if some creditor balance changed between reads & txs
+        toast.success("✅ Partially settled. Some balances changed on-chain.");
+      }
+    } catch (e: any) {
+      const msg =
+        e?.shortMessage ||
+        e?.cause?.reason ||
+        e?.cause?.shortMessage ||
+        e?.message ||
+        "Failed to settle";
+      toast.error(msg);
+      console.error("settle error:", e);
+    } finally {
+      setSettling(false);
+    }
+  }
 
   if (loadingTrip) {
     return (
@@ -357,9 +463,17 @@ export default function TripPage() {
           <Button
             variant="outline"
             className="flex-1 border-gray-200 dark:border-gray-800"
-            disabled
+            onClick={handleSettleUp}
+            disabled={settling || !address || members.length < 2}
           >
-            Settle Up
+            {settling ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Settling…
+              </>
+            ) : (
+              "Settle Up"
+            )}
           </Button>
         </div>
       </main>
