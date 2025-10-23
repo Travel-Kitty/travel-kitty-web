@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { ThemeProvider } from "next-themes";
 import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
+import { Toaster } from "@/components/ui/sonner";
 
 import { RQProvider } from "@/lib/react-query";
 import { config } from "@/lib/wagmi";
@@ -31,6 +32,7 @@ export default function RootLayout({
                 defaultTheme="system"
                 enableSystem
               >
+                <Toaster richColors position="top-center" />
                 <div
                 // className="mx-auto max-w-4xl p-6"
                 >
