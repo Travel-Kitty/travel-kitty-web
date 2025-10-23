@@ -2,6 +2,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
   useAccount,
@@ -85,6 +86,7 @@ function parseWagmiError(e: unknown): string {
 export default function Home() {
   const { address, isConnected } = useAccount();
   const me = useMemo(() => address?.toLowerCase(), [address]);
+  const router = useRouter();
 
   // ----- form states
   const [joinCode, setJoinCode] = useState("");
@@ -121,6 +123,10 @@ export default function Home() {
 
   const createTripMutation = useCreateTrip();
   const joinTripMutation = useJoinTrip();
+
+  function handleRedirectToDetail(id: string) {
+    router.push(`/trip/${id}`);
+  }
 
   // ---------- claim faucet with cooldown explanation ----------
   async function handleClaim() {
@@ -269,7 +275,7 @@ export default function Home() {
 
       <main className="container px-4 sm:px-8 py-8 sm:py-12 space-y-8 sm:space-y-12 mx-auto">
         {!isConnected ? (
-          <Card className="border shadow-sm dark:shadow-none">
+          <Card className="border shadow-sm dark:shadow-none mt-6">
             <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
               <div className="rounded-full bg-primary/10 p-4">
                 <Plane className="h-8 w-8 text-primary" />
@@ -552,8 +558,12 @@ export default function Home() {
                                   <span className="font-mono">{t.code6}</span>
                                 </Button>
                               )}
-                              <Button asChild size="sm">
-                                <Link href={`/trip/${t.id}`}>Open Trip</Link>
+                              <Button
+                                size="sm"
+                                disabled={!t.mine && !t.joined}
+                                onClick={() => handleRedirectToDetail(t.id)}
+                              >
+                                Open Trip
                               </Button>
                             </div>
                           </div>
