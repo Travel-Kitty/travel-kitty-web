@@ -18,3 +18,21 @@ export type CreateTripInput = {
   createTxHash?: string | null;
   chainId?: number;
 };
+
+export type TripDetail = {
+  id: string;
+  name: string;
+  code6: string;
+  creator: string;
+  tripAddress: string;
+  createTxHash: string;
+  chainId: number;
+  createdAt: string;
+  latestReceipt: null | {
+    currency: string;
+    items: unknown;
+    total: number | null;
+    imageUrl?: string | null;
+    createdAt: string;
+  };
+};

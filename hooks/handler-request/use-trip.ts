@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/utils/fetcher";
-import { TripRow } from "@/types";
+import { TripDetail, TripRow } from "@/types";
 
 export function useTripList(params: {
   query: string;
@@ -68,6 +68,29 @@ export function useJoinTrip() {
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["trips"] });
+    },
+  });
+}
+
+export function useTripDetail(id: string | undefined) {
+  return useQuery({
+    queryKey: ["trip", id],
+    enabled: !!id,
+    queryFn: async () => {
+      return apiFetch<TripDetail>(`/api/trips/${id}`);
+    },
+  });
+}
+
+export function useTripDbMembers(id: string | undefined) {
+  return useQuery({
+    queryKey: ["trip", id, "members"],
+    enabled: !!id,
+    queryFn: async () => {
+      const res = await apiFetch<{ wallets: string[] }>(
+        `/api/trips/${id}/members`
+      );
+      return res.wallets;
     },
   });
 }
