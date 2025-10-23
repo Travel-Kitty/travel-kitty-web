@@ -5,7 +5,7 @@ import { motion, Variants } from "framer-motion";
 import { AuroraText } from "../ui/aurora-text";
 import { Marquee } from "../ui/marquee";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 
 const headerVariants: Variants = {
   hidden: { opacity: 0, y: 14 },

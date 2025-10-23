@@ -32,7 +32,7 @@ import {
   useTripDbMembers,
 } from "@/hooks/handler-request/use-trip";
 import { useOnchainMembers } from "@/hooks/handler-request/use-onchain";
-import { fmt } from "@/lib/utils";
+import { fmt } from "@/utils/utils";
 
 export default function TripPage() {
   const params = useParams<{ id: string }>();

@@ -51,7 +51,7 @@ import {
   Search,
   Plane,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/utils";
 import Image from "next/image";
 import Logo from "@/public/images/logo.png";
 import { AuroraText } from "@/components/ui/aurora-text";

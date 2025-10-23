@@ -25,7 +25,7 @@ import {
 import { ImageUpload } from "@/components/ui/image-upload";
 
 import { useOcrExtract } from "@/hooks/handler-request/use-ocr";
-import { fmt } from "@/lib/utils";
+import { fmt } from "@/utils/utils";
 
 const FormSchema = z.object({
   name: z.string().min(2, "Min 2 chars"),
