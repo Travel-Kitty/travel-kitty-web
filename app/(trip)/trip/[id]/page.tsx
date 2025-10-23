@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { use } from "react";
+import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
 import Link from "next/link";
@@ -34,17 +34,13 @@ import {
 import { useOnchainMembers } from "@/hooks/handler-request/use-onchain";
 import { fmt } from "@/lib/utils";
 
-export default function TripPage({
-  params,
-}: Readonly<{
-  params: Promise<{ id: string }>;
-}>) {
-  const { id } = use(params);
+export default function TripPage() {
+  const { id } = useParams();
   const { address } = useAccount();
 
-  const { data: trip, isLoading: loadingTrip } = useTripDetail(id);
+  const { data: trip, isLoading: loadingTrip } = useTripDetail(id as string);
   const { data: dbMembers = [], isLoading: loadingDbMembers } =
-    useTripDbMembers(id);
+    useTripDbMembers(id as string);
   const { data: chainMembers = [], isLoading: loadingChainMembers } =
     useOnchainMembers((trip?.tripAddress as `0x${string}`) || null);
 
