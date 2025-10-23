@@ -5,17 +5,19 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const exists = await prisma.trip.findUnique({
-      where: { id: params.id },
+      where: { id },
       select: { id: true },
     });
     if (!exists) return fail("NOT_FOUND", "Trip not found", 404);
 
     const rows = await prisma.tripMember.findMany({
-      where: { tripId: params.id },
+      where: { tripId: id },
       select: { wallet: true },
       orderBy: { joinedAt: "asc" },
     });
