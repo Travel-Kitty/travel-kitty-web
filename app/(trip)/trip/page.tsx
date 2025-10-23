@@ -1,7 +1,7 @@
-/* eslint-disable  @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
   useAccount,
@@ -15,7 +15,6 @@ import {
   waitForTransactionReceipt,
   readContract,
 } from "wagmi/actions";
-import { baseSepolia } from "wagmi/chains";
 import Link from "next/link";
 import { config } from "@/lib/wagmi";
 import { ADDR, factoryAbi, faucetAbi } from "@/lib/contracts";
@@ -24,13 +23,37 @@ import {
   useCreateTrip,
   useJoinTrip,
 } from "@/hooks/handler-request/use-trip";
-import { type TripRow } from "@/types";
 import {
   ReceiptCreateDialog,
   type ReceiptCreateForm,
 } from "@/components/trip/receipt-create-dialog";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Loader2,
+  Plus,
+  LogIn,
+  Coins,
+  Copy,
+  ExternalLink,
+  Search,
+  Plane,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import Image from "next/image";
+import Logo from "@/public/images/logo.png";
+import { AuroraText } from "@/components/ui/aurora-text";
 
 // ---------- small utils ----------
 const basescanTx = (hash: string) => `https://sepolia.basescan.org/tx/${hash}`;
@@ -43,7 +66,6 @@ const makeCode6 = () =>
 
 function parseWagmiError(e: unknown): string {
   const err = e as any;
-  // viem/wagmi sometimes put the human text in different places
   const parts: (string | undefined)[] = [
     err?.shortMessage,
     err?.cause?.reason,
@@ -59,20 +81,21 @@ function parseWagmiError(e: unknown): string {
   return msg ?? "unknown reason";
 }
 
-// ---------- types ----------
-type TripRowLocal = TripRow;
-
-// ~~ REMOVED old api<T> helper; now using TanStack hooks ~~
-
 export default function Home() {
   const { address, isConnected } = useAccount();
   const me = useMemo(() => address?.toLowerCase(), [address]);
 
   // ----- form states
-  const [tripName, setTripName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState<"all" | "joined" | "mine">("all");
+
+  // Debounced search state
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(id);
+  }, [search]);
 
   // ----- tx states
   const [creating, setCreating] = useState(false);
@@ -85,19 +108,16 @@ export default function Home() {
     isLoading: loadingTrips,
     isError: errorTrips,
     error: tripsError,
-    refetch: refetchTrips,
   } = useTripList({
-    query: search,
+    query: debouncedSearch,
     scope,
     me: address,
     enabled: !!isConnected,
   });
 
-  // wagmi write (for completeness; we mostly use actions to await receipts)
   const { data: pendingHash } = useWriteContract();
   useWaitForTransactionReceipt({ hash: pendingHash });
 
-  // Mutations
   const createTripMutation = useCreateTrip();
   const joinTripMutation = useJoinTrip();
 
@@ -107,18 +127,15 @@ export default function Home() {
     setClaiming(true);
     setClaimMsg(null);
     try {
-      // write & wait
       const sim = await writeContract(config, {
         address: ADDR.FAUCET,
         abi: faucetAbi,
         functionName: "claim",
         args: [],
       });
-      // const hash = await writeContract(config, sim.request);
-      // await waitForTransactionReceipt(config, { hash });
       setClaimMsg("✅ Claimed mUSD!");
+      toast.success("Successfully claimed mUSD!");
     } catch (e) {
-      // If cooldown, compute next allowed time
       let msg = parseWagmiError(e);
       if (/COOLDOWN/i.test(msg)) {
         try {
@@ -142,57 +159,9 @@ export default function Home() {
         }
       }
       setClaimMsg(`❌ ${msg}`);
+      toast.error(msg);
     } finally {
       setClaiming(false);
-    }
-  }
-
-  // ---------- create trip via factory ----------
-  async function handleCreateTrip() {
-    if (!address) return;
-    if (!tripName.trim()) return alert("Please enter a trip name");
-    setCreating(true);
-    try {
-      const code6 = makeCode6();
-
-      // ✅ bikin salt 32 byte
-      const salt = keccak256(
-        toBytes(`${address.toLowerCase()}:${tripName.trim()}:${Date.now()}`)
-      );
-
-      // 1) simulate pakai salt (bytes32)
-      const sim = await simulateContract(config, {
-        address: ADDR.FACTORY,
-        abi: factoryAbi, // pastikan abi-nya createTrip(bytes32) returns (address)
-        functionName: "createTrip",
-        args: [salt], // ✅ kirim bytes32, bukan address
-        account: address as `0x${string}`,
-      });
-
-      // 2) kirim tx persis dari request simulasi
-      const hash = await writeContract(config, sim.request);
-      const receipt = await waitForTransactionReceipt(config, { hash });
-
-      // 3) ambil address trip
-      const tripAddr = sim.result as `0x${string}`;
-
-      // 4) simpan ke DB kamu (via TanStack mutation)
-      await createTripMutation.mutateAsync({
-        name: tripName.trim(),
-        code6,
-        creator: address.toLowerCase(),
-        tripAddress: tripAddr,
-        createTxHash: hash,
-        chainId: 84532,
-      });
-
-      setTripName("");
-      alert(`✅ Trip created! Code: ${code6}`);
-    } catch (e) {
-      alert(`❌ ${parseWagmiError(e)}`);
-      console.error(e);
-    } finally {
-      setCreating(false);
     }
   }
 
@@ -200,16 +169,17 @@ export default function Home() {
   async function handleJoinByCode() {
     if (!address) return;
     const code = joinCode.trim().toUpperCase();
-    if (!/^[A-Z0-9]{6}$/.test(code))
-      return alert("Enter a valid 6-character code");
+    if (!/^[A-Z0-9]{6}$/.test(code)) {
+      toast.error("Enter a valid 6-character code");
+      return;
+    }
     try {
       await joinTripMutation.mutateAsync({ code6: code, wallet: me as string });
       setJoinCode("");
-      alert("✅ Joined trip!");
-      // invalidate already handled in hook; optional manual refetch:
-      // await refetchTrips();
+      toast.success("✅ Joined trip!");
     } catch (e) {
-      alert(`❌ ${parseWagmiError(e)}`);
+      const msg = parseWagmiError(e);
+      toast.error(msg);
       console.error(e);
     }
   }
@@ -251,6 +221,7 @@ export default function Home() {
         total: values.total,
       });
       toast.success(`🐾 Trip created! Code: ${code6}`);
+      setOpenCreateDialog(false);
     } finally {
       setCreating(false);
     }
@@ -258,190 +229,359 @@ export default function Home() {
 
   // ---------- render ----------
   return (
-    <main className="space-y-10 !cursor-default">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">🐾 Travel Kitty (Alpha)</h1>
-        <AnimatedThemeToggler />
-        <ConnectButton />
+    <div className="min-h-screen bg-background dark:bg-gradient-to-br dark:from-background dark:via-background dark:to-primary/5 text-foreground">
+      {/* Header */}
+      <header className="fixed top-0 w-full z-50">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between rounded-b-2xl border border-t-0 border-border/50 bg-background/70 backdrop-blur supports-backdrop-blur:backdrop-blur">
+            <div className="flex items-center gap-3 pl-3">
+              <Image
+                src={Logo}
+                alt="Travel Kitty Logo"
+                className="h-10 w-10 rounded-xl"
+              />
+              <span className="font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent text-base sm:text-lg">
+                Travel Kitty
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 sm:gap-4 pr-4">
+              <AnimatedThemeToggler className="!cursor-pointer" />
+              <div className="hidden sm:block">
+                <ConnectButton
+                  accountStatus="address"
+                  chainStatus="full"
+                  showBalance={false}
+                />
+              </div>
+              <div className="sm:hidden">
+                <ConnectButton
+                  accountStatus="avatar"
+                  chainStatus="icon"
+                  showBalance={false}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </header>
 
-      {!isConnected ? (
-        <div className="rounded-xl border border-neutral-800 p-6 text-center">
-          <p className="text-neutral-400">
-            Please connect your wallet to get started.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Onboarding: Join + Claim */}
-          <section className="rounded-xl border border-neutral-800 p-6 space-y-4">
-            <h2 className="font-medium">1) Get Ready</h2>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Create trip */}
-              <div className="rounded-lg border border-neutral-800 p-4 space-y-3">
-                <button
-                  onClick={() => setOpenCreateDialog(true)}
-                  className="rounded-lg bg-white/10 px-4 py-2 disabled:opacity-50"
-                >
-                  {creating || createTripMutation.isPending
-                    ? "Processing…"
-                    : "Create Trip"}
-                </button>
-                <p className="text-xs text-neutral-500">
-                  A new on-chain kitty is deployed via the Factory. You’ll
-                  receive a 6-char join code.
+      <main className="container px-4 sm:px-8 py-8 sm:py-12 space-y-8 sm:space-y-12 mx-auto">
+        {!isConnected ? (
+          <Card className="border shadow-sm dark:shadow-none">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+              <div className="rounded-full bg-primary/10 p-4">
+                <Plane className="h-8 w-8 text-primary" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold">
+                  Welcome to Travel Kitty
+                </h3>
+                <p className="text-neutral-600 dark:text-muted-foreground max-w-md">
+                  Connect your wallet to start splitting travel expenses
+                  instantly with AI & blockchain technology.
                 </p>
               </div>
+              <div className="pt-4">
+                <ConnectButton />
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Hero Section */}
+            <div className="text-center space-y-4 py-8 sm:py-12">
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight">
+                Split Travel Expenses <AuroraText>Instantly</AuroraText>
+              </h2>
+              <p className="text-neutral-600 dark:text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
+                Smart wallet pools for your trips. AI powered receipt scanning,
+                automatic currency conversion, and transparent onchain
+                settlement.
+              </p>
+            </div>
 
-              <ReceiptCreateDialog
-                open={openCreateDialog}
-                onOpenChange={setOpenCreateDialog}
-                onSubmitFinal={handleSubmitCreateDialog}
-              />
-
-              {/* Join by code + faucet */}
-              <div className="rounded-lg border border-neutral-800 p-4 space-y-3">
-                <label className="space-y-1 block">
-                  <span className="text-sm text-neutral-400">
-                    Join with code
-                  </span>
-                  <div className="flex gap-2">
-                    <input
-                      value={joinCode}
-                      onChange={(e) =>
-                        setJoinCode(e.target.value.toUpperCase())
-                      }
-                      className="w-full rounded-md bg-neutral-900 px-3 py-2"
-                      placeholder="ABC123"
-                      maxLength={6}
-                    />
-                    <button
-                      onClick={handleJoinByCode}
-                      disabled={joinTripMutation.isPending}
-                      className="rounded-lg bg-white/10 px-4 py-2 disabled:opacity-50"
+            {/* Get Ready Section */}
+            <section className="space-y-6">
+              <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
+                {/* Create Trip Card */}
+                <Card className="border shadow-sm hover:border-primary/50 transition-colors dark:shadow-none">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Plus className="h-5 w-5" />
+                      Create New Trip
+                    </CardTitle>
+                    <CardDescription>
+                      Deploy a new onchain kitty via the Factory. You'll receive
+                      a 6 char join code to share with travel companions.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button
+                      onClick={() => setOpenCreateDialog(true)}
+                      disabled={creating || createTripMutation.isPending}
+                      className="w-full"
+                      size="lg"
                     >
-                      {joinTripMutation.isPending ? "Joining…" : "Join"}
-                    </button>
-                  </div>
-                </label>
-
-                <div className="pt-2 border-t border-neutral-800">
-                  <button
-                    onClick={handleClaim}
-                    disabled={claiming}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 disabled:opacity-50"
-                  >
-                    {claiming ? "Claiming…" : "Claim mUSD"}
-                  </button>
-                  {claimMsg && (
-                    <p className="mt-2 text-sm">
-                      {claimMsg.startsWith("✅") ? (
-                        <span className="text-emerald-400">{claimMsg}</span>
+                      {creating || createTripMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
                       ) : (
-                        <span className="text-red-400">{claimMsg}</span>
+                        <>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Trip
+                        </>
                       )}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
+                    </Button>
+                  </CardContent>
+                </Card>
 
-          {/* Trip list */}
-          <section className="rounded-xl border border-neutral-800 p-6 space-y-4">
-            <h2 className="font-medium">2) Trips</h2>
+                <ReceiptCreateDialog
+                  open={openCreateDialog}
+                  onOpenChange={setOpenCreateDialog}
+                  onSubmitFinal={handleSubmitCreateDialog}
+                />
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex gap-2">
-                {(["all", "joined", "mine"] as const).map((k) => (
-                  <button
-                    key={k}
-                    onClick={() => setScope(k)}
-                    className={`rounded-full px-3 py-1 text-sm border ${
-                      scope === k
-                        ? "border-white/80"
-                        : "border-white/10 text-neutral-400"
-                    }`}
-                  >
-                    {k === "all"
-                      ? "All"
-                      : k === "joined"
-                      ? "Joined"
-                      : "Created by me"}
-                  </button>
-                ))}
-              </div>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name…"
-                className="rounded-md bg-neutral-900 px-3 py-2 w-full sm:w-72"
-              />
-            </div>
+                {/* Join & Claim Card */}
+                <Card className="border-2 hover:border-primary/50 transition-colors">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <LogIn className="h-5 w-5" />
+                      Join Trip & Get Funds
+                    </CardTitle>
+                    <CardDescription>
+                      Enter a 6 character code to join an existing trip, or
+                      claim test tokens to get started.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Join by code */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        Join with code
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={joinCode}
+                          onChange={(e) =>
+                            setJoinCode(e.target.value.toUpperCase())
+                          }
+                          placeholder="ABC123"
+                          maxLength={6}
+                          className="uppercase font-mono"
+                        />
+                        <Button
+                          onClick={handleJoinByCode}
+                          disabled={joinTripMutation.isPending}
+                          size="lg"
+                        >
+                          {joinTripMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Join"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
 
-            <div className="divide-y divide-neutral-800">
-              {loadingTrips && (
-                <p className="py-6 text-neutral-400">Loading…</p>
-              )}
-              {!loadingTrips && trips.length === 0 && !errorTrips && (
-                <p className="py-6 text-neutral-400">
-                  No trips match your filter.
-                </p>
-              )}
-              {errorTrips && (
-                <p className="py-6 text-red-400">
-                  Failed to load trips:{" "}
-                  {(tripsError as Error)?.message ?? "Unknown error"}
-                </p>
-              )}
-              {trips.map((t) => (
-                <div
-                  key={t.id}
-                  className="py-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <div className="font-medium">{t.name}</div>
-                    <div className="text-xs text-neutral-400">
-                      {t.mine
-                        ? "You created this trip"
-                        : t.joined
-                        ? "You joined"
-                        : "Public"}
-                      {" · "}
-                      <Link
-                        href={basescanTx(t.createTxHash)}
-                        target="_blank"
-                        className="underline"
+                    {/* Divider */}
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t border-border/70" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">
+                          Or
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Claim faucet */}
+                    <div className="space-y-2">
+                      <Button
+                        onClick={handleClaim}
+                        disabled={claiming}
+                        variant="default"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white dark:text-foreground"
+                        size="lg"
                       >
-                        tx
-                      </Link>
+                        {claiming ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Claiming...
+                          </>
+                        ) : (
+                          <>
+                            <Coins className="mr-2 h-4 w-4" />
+                            Claim Test mUSD
+                          </>
+                        )}
+                      </Button>
+                      {claimMsg && (
+                        <p
+                          className={cn(
+                            "text-sm text-center",
+                            claimMsg.startsWith("✅")
+                              ? "text-emerald-500"
+                              : "text-destructive"
+                          )}
+                        >
+                          {claimMsg}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+
+            {/* Trips Section */}
+            <section className="space-y-6">
+              <Card className="shadow-sm dark:shadow-none">
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+                    {/* Tabs */}
+                    <Tabs
+                      value={scope}
+                      onValueChange={(v) => setScope(v as any)}
+                      className="w-full sm:w-auto"
+                    >
+                      <TabsList className="grid w-full grid-cols-3 sm:w-auto !cursor-pointer">
+                        <TabsTrigger value="all">All</TabsTrigger>
+                        <TabsTrigger value="joined">Joined</TabsTrigger>
+                        <TabsTrigger value="mine">My Trips</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+
+                    {/* Search */}
+                    <div className="relative w-full sm:w-72">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search by name..."
+                        className="pl-9"
+                      />
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3">
-                    {t.mine && (
-                      <button
-                        onClick={() => navigator.clipboard.writeText(t.code6)}
-                        className="rounded-md bg-white/10 px-3 py-1 text-sm"
-                        title="Copy join code"
-                      >
-                        Code: {t.code6}
-                      </button>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {loadingTrips && (
+                      <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      </div>
                     )}
-                    <Link
-                      href={`/trip/${t.id}`}
-                      className="rounded-md bg-white/10 px-3 py-1 text-sm"
-                    >
-                      Open
-                    </Link>
+
+                    {!loadingTrips && trips.length === 0 && !errorTrips && (
+                      <div className="text-center py-12 space-y-2">
+                        <p className="text-neutral-600 dark:text-muted-foreground">
+                          No trips match your filter.
+                        </p>
+                        <p className="text-sm text-neutral-600 dark:text-muted-foreground">
+                          Create a new trip or join one with a code to get
+                          started.
+                        </p>
+                      </div>
+                    )}
+
+                    {errorTrips && (
+                      <div className="text-center py-12">
+                        <p className="text-destructive">
+                          Failed to load trips:{" "}
+                          {(tripsError as Error)?.message ?? "Unknown error"}
+                        </p>
+                      </div>
+                    )}
+
+                    {trips.map((t) => (
+                      <Card
+                        key={t.id}
+                        className="hover:shadow-md transition-shadow"
+                      >
+                        <CardContent>
+                          <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-semibold text-lg">
+                                  {t.name}
+                                </h3>
+                                {t.mine && (
+                                  <Badge variant="default">Owner</Badge>
+                                )}
+                                {!t.mine && t.joined && (
+                                  <Badge variant="secondary">Joined</Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span>
+                                  {t.mine
+                                    ? "You created this trip"
+                                    : t.joined
+                                    ? "You're a member"
+                                    : "Public trip"}
+                                </span>
+                                <span>·</span>
+                                <Link
+                                  href={basescanTx(t.createTxHash)}
+                                  target="_blank"
+                                  className="inline-flex items-center gap-1 hover:text-blue-500 hover:underline transition-colors"
+                                >
+                                  View transaction
+                                  <ExternalLink className="h-3 w-3" />
+                                </Link>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {t.mine && (
+                                <Button
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(t.code6);
+                                    toast.success("Code copied to clipboard!");
+                                  }}
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-2"
+                                >
+                                  <Copy className="h-4 w-4" />
+                                  <span className="font-mono">{t.code6}</span>
+                                </Button>
+                              )}
+                              <Button asChild size="sm">
+                                <Link href={`/trip/${t.id}`}>Open Trip</Link>
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
                   </div>
-                </div>
-              ))}
+                </CardContent>
+              </Card>
+            </section>
+          </>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t py-8 mt-16">
+        <div className="container px-4 sm:px-8">
+          <div className="flex flex-col sm:flex-row items(center) justify-between gap-4 text-sm text-neutral-600 dark:text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>✨ Built on Base Sepolia</span>
+              <span>·</span>
+              <span>Web3 + AI Powered</span>
             </div>
-          </section>
-        </>
-      )}
-    </main>
+            <p>
+              © {new Date().getFullYear()} Travel Kitty. Split expenses
+              instantly.
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 }
