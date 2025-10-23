@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -40,6 +40,7 @@ const FormSchema = z.object({
       })
     )
     .min(1, "At least one item is required"),
+  total: z.number().min(0, "Must be >= 0"),
 });
 export type ReceiptCreateForm = z.infer<typeof FormSchema>;
 
@@ -59,6 +60,7 @@ export function ReceiptCreateDialog(
       items: [],
       hint: "",
       image: undefined,
+      total: 0,
     },
   });
   const { fields, append, remove } = useFieldArray({
@@ -66,6 +68,21 @@ export function ReceiptCreateDialog(
     name: "items",
   });
   const ocr = useOcrExtract();
+  const itemsWatch = form.watch("items");
+  const itemsJson = JSON.stringify(itemsWatch);
+  const total = useMemo(() => {
+    return (itemsWatch || []).reduce((sum, it) => {
+      const q = Number(it?.qty ?? 0) || 0;
+      const p = Number(it?.unitPrice ?? 0) || 0;
+      return sum + q * p;
+    }, 0);
+  }, [itemsJson]);
+
+  const fmt = (n: number) =>
+    new Intl.NumberFormat(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(isFinite(n) ? n : 0);
 
   const handleExtract = useCallback(async () => {
     const file = form.getValues("image");
@@ -92,7 +109,7 @@ export function ReceiptCreateDialog(
 
   const onSubmit = async (values: ReceiptCreateForm) => {
     try {
-      await onSubmitFinal(values);
+      await onSubmitFinal({ ...values, total });
       onOpenChange(false);
       form.reset();
     } catch (error) {
@@ -156,7 +173,11 @@ export function ReceiptCreateDialog(
             <Button
               type="button"
               variant="secondary"
-              disabled={!form.watch("image") || ocr.isPending}
+              disabled={
+                !form.watch("image") ||
+                ocr.isPending ||
+                form.formState.isSubmitting
+              }
               onClick={handleExtract}
               className="whitespace-nowrap"
             >
@@ -178,6 +199,7 @@ export function ReceiptCreateDialog(
                 variant="secondary"
                 size="sm"
                 onClick={() => append({ name: "", qty: 1, unitPrice: 0 })}
+                disabled={form.formState.isSubmitting || ocr.isPending}
               >
                 <Plus className="w-4 h-4 mr-1" />
                 Add Row
@@ -230,13 +252,13 @@ export function ReceiptCreateDialog(
                                 step="1"
                                 min="1"
                                 placeholder="1"
+                                {...field}
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   field.onChange(
                                     value === "" ? "" : Number(value)
                                   );
                                 }}
-                                {...field}
                               />
                             )}
                           />
@@ -251,13 +273,13 @@ export function ReceiptCreateDialog(
                                 step="0.01"
                                 min="0"
                                 placeholder="0.00"
+                                {...field}
                                 onChange={(e) => {
                                   const value = e.target.value;
                                   field.onChange(
                                     value === "" ? "" : Number(value)
                                   );
                                 }}
-                                {...field}
                               />
                             )}
                           />
@@ -278,17 +300,29 @@ export function ReceiptCreateDialog(
                 </TableBody>
               </Table>
             </div>
+            <div className="flex justify-end pt-3">
+              <div className="text-right">
+                <div className="text-sm text-neutral-400">
+                  Total ({form.watch("currency")})
+                </div>
+                <div className="text-xl font-semibold">{fmt(total)}</div>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
             <Button
               type="button"
               variant="outline"
+              disabled={form.formState.isSubmitting || ocr.isPending}
               onClick={() => onOpenChange(false)}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={form.formState.isSubmitting}>
+            <Button
+              type="submit"
+              disabled={form.formState.isSubmitting || ocr.isPending}
+            >
               {form.formState.isSubmitting ? "Saving…" : "Create Trip"}
             </Button>
           </div>

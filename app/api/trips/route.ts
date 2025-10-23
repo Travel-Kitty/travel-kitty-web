@@ -2,13 +2,22 @@
 import { ok, fail, safeJson, isEthAddress } from "@/utils/response";
 import type { CreateTripInput, TripRow } from "@/types/trip";
 import { prisma } from "@/lib/prisma";
+import { put } from "@vercel/blob";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    const body = await safeJson<CreateTripInput>(req);
+    const body = await safeJson<
+      CreateTripInput & {
+        currency?: string;
+        items?: { name: string; qty?: number; unitPrice?: number }[];
+        imageDataUrl?: string | null;
+        total?: number;
+      }
+    >(req);
+
     const { name, code6, creator, tripAddress, createTxHash, chainId } =
       body || {};
 
@@ -50,9 +59,51 @@ export async function POST(req: Request) {
       },
     });
 
-    await prisma.tripMember.create({
-      data: { tripId: trip.id, wallet },
-    });
+    await prisma.tripMember.create({ data: { tripId: trip.id, wallet } });
+
+    // ---- optional: save receipt (currency + items) ----
+    if (body?.currency && Array.isArray(body.items) && body.items.length > 0) {
+      // compute total if not provided
+      const total =
+        typeof body.total === "number"
+          ? body.total
+          : body.items.reduce(
+              (s, it) => s + Number(it.unitPrice ?? 0) * Number(it.qty ?? 1),
+              0
+            );
+
+      let imageUrl: string | undefined = undefined;
+
+      // (optional) store image to Vercel Blob if data URL provided
+      // Requires @vercel/blob and env BLOB_READ_WRITE_TOKEN on Vercel
+      if (body.imageDataUrl) {
+        try {
+          const [meta, b64] = body.imageDataUrl.split(",", 2);
+          const mime =
+            /data:(.*?);base64/.exec(meta || "")?.[1] || "image/jpeg";
+          const bytes = Buffer.from(b64 || "", "base64");
+          const fileName = `receipts/${trip.id}-${Date.now()}.jpg`;
+          const saved = await put(fileName, bytes, {
+            access: "public",
+            contentType: mime,
+          });
+          imageUrl = saved.url;
+        } catch (e) {
+          // If blob not configured, just ignore image store
+          console.warn("blob upload skipped:", e);
+        }
+      }
+
+      await prisma.receipt.create({
+        data: {
+          tripId: trip.id,
+          currency: body.currency,
+          items: body.items,
+          total,
+          imageUrl,
+        },
+      });
+    }
 
     return ok<typeof trip>(trip, { status: 201 });
   } catch (e: any) {

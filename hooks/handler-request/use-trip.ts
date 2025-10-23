@@ -41,6 +41,10 @@ export function useCreateTrip() {
       tripAddress: `0x${string}`;
       createTxHash: string;
       chainId?: number;
+      currency?: string;
+      items?: { name: string; qty?: number; unitPrice?: number }[];
+      imageDataUrl?: string | null;
+      total?: number;
     }) => {
       return apiFetch<unknown>("/api/trips", {
         method: "POST",

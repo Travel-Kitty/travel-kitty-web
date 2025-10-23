@@ -30,6 +30,7 @@ import {
   type ReceiptCreateForm,
 } from "@/components/trip/receipt-create-dialog";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { toast } from "sonner";
 
 // ---------- small utils ----------
 const basescanTx = (hash: string) => `https://sepolia.basescan.org/tx/${hash}`;
@@ -216,7 +217,6 @@ export default function Home() {
   // dialog state
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
 
-  // submit dari dialog -> lanjutkan proses deploy + sim seperti sebelumnya
   const handleSubmitCreateDialog = async (values: ReceiptCreateForm) => {
     if (!address) throw new Error("Wallet not connected");
     setCreating(true);
@@ -246,10 +246,11 @@ export default function Home() {
         tripAddress: tripAddr,
         createTxHash: hash,
         chainId: 84532,
+        currency: values.currency,
+        items: values.items,
+        total: values.total,
       });
-
-      // NOTE: values.items + values.currency tersedia kalau nanti mau disimpan sebagai expenses.
-      alert(`✅ Trip created! Code: ${code6}`);
+      toast.success(`🐾 Trip created! Code: ${code6}`);
     } finally {
       setCreating(false);
     }

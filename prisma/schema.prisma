@@ -26,6 +26,7 @@ model Trip {
   createdAt    DateTime     @default(now())
   members      TripMember[]
   expenses     Expense[]
+  receipts     Receipt[]
 
   @@index([creator])
   @@index([code6])
@@ -58,4 +59,18 @@ model Expense {
 
   @@index([tripId])
   @@index([payer])
+}
+
+model Receipt {
+  id        String   @id @default(cuid())
+  tripId    String
+  currency  String
+  items     Json
+  total     Float?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  trip Trip @relation(fields: [tripId], references: [id])
+
+  @@index([tripId])
 }
