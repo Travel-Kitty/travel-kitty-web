@@ -18,7 +18,7 @@ export default function Navbar() {
               alt="Travel Kitty Logo"
               className="h-10 w-10 rounded-xl"
             />
-            <span className="font-semibold text-base sm:text-lg">
+            <span className="font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent text-base sm:text-lg">
               Travel Kitty
             </span>
           </div>
