@@ -290,6 +290,9 @@ export function ReceiptCreateDialog(
                             variant="destructive"
                             size="icon"
                             onClick={() => remove(idx)}
+                            disabled={
+                              form.formState.isSubmitting || ocr.isPending
+                            }
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
