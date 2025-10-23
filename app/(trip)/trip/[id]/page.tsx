@@ -35,12 +35,12 @@ import { useOnchainMembers } from "@/hooks/handler-request/use-onchain";
 import { fmt } from "@/lib/utils";
 
 export default function TripPage() {
-  const { id } = useParams();
+  const params = useParams<{ id: string }>();
   const { address } = useAccount();
 
-  const { data: trip, isLoading: loadingTrip } = useTripDetail(id as string);
+  const { data: trip, isLoading: loadingTrip } = useTripDetail(params.id);
   const { data: dbMembers = [], isLoading: loadingDbMembers } =
-    useTripDbMembers(id as string);
+    useTripDbMembers(params.id);
   const { data: chainMembers = [], isLoading: loadingChainMembers } =
     useOnchainMembers((trip?.tripAddress as `0x${string}`) || null);
 
