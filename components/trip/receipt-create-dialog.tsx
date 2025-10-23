@@ -25,6 +25,7 @@ import {
 import { ImageUpload } from "@/components/ui/image-upload";
 
 import { useOcrExtract } from "@/hooks/handler-request/use-ocr";
+import { fmt } from "@/lib/utils";
 
 const FormSchema = z.object({
   name: z.string().min(2, "Min 2 chars"),
@@ -77,12 +78,6 @@ export function ReceiptCreateDialog(
       return sum + q * p;
     }, 0);
   }, [itemsJson]);
-
-  const fmt = (n: number) =>
-    new Intl.NumberFormat(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(isFinite(n) ? n : 0);
 
   const handleExtract = useCallback(async () => {
     const file = form.getValues("image");
