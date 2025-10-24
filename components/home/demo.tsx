@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { Check, Play } from "lucide-react";
 import { motion, Variants } from "framer-motion";
 
@@ -48,6 +49,8 @@ const previewVariants: Variants = {
 };
 
 export default function Demo() {
+  const demoUrl = "https://youtu.be/3DQyyEyAIio";
+
   return (
     <section id="demo" className="px-4 sm:px-6 lg:px-8 py-16">
       <div className="mx-auto max-w-7xl">
@@ -75,16 +78,19 @@ export default function Demo() {
                 className="text-sm sm:text-base lg:text-lg text-muted-foreground"
                 variants={leftColItem}
               >
-                Try our live demo with sample data on Base Sepolia testnet. No
-                real funds required!
+                Watch a quick walkthrough of Travel Kitty on Base Sepolia:
+                connect a wallet, create a trip with AI receipt OCR, share and
+                join via code, execute the split onchain, and settle up with
+                transparent transactions.
               </motion.p>
 
               <motion.ul className="space-y-2 text-sm" variants={gridStagger}>
                 {[
-                  "3 sample members with test transactions",
-                  "5 preloaded expenses to explore",
-                  "Full settlement flow demonstration",
-                  "View actual blockchain transactions",
+                  "Create a trip and auto extract items with AI OCR",
+                  "Share a 6 character join code and joining is onchain",
+                  "Claim test mUSD with cooldown feedback",
+                  "Execute Split (onchain) then Settle Up for payers",
+                  "One click Basescan links for every transaction",
                 ].map((t, i) => (
                   <motion.li
                     key={i}
@@ -101,32 +107,44 @@ export default function Demo() {
                 className="flex flex-col sm:flex-row gap-3"
                 variants={leftColItem}
               >
-                <button className="rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-sm font-semibold text-white transition-transform hover:scale-105 pointer-cursor">
-                  Launch Demo
-                </button>
-                <button className="rounded-full border border-border/60 bg-background/50 px-6 py-3 text-sm font-semibold hover:bg-muted/60 pointer-cursor">
-                  View on Explorer
-                </button>
+                <Link
+                  href={demoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 text-center text-sm font-semibold text-white transition-transform hover:scale-105"
+                >
+                  Watch Demo
+                </Link>
+                <Link
+                  href="/trip"
+                  className="rounded-full border border-border/60 bg-background/50 px-6 py-3 text-center text-sm font-semibold hover:bg-muted/60"
+                >
+                  Open App
+                </Link>
               </motion.div>
             </motion.div>
 
             {/* Right column: preview box */}
-            <motion.div
-              className="relative h-64 lg:h-96 overflow-hidden rounded-2xl border border-border/60"
+            <motion.a
+              href={demoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Watch Travel Kitty demo on YouTube"
+              className="relative h-64 lg:h-96 overflow-hidden rounded-2xl border border-border/60 group"
               variants={previewVariants}
               initial="hidden"
               whileInView="show"
               viewport={{ once: true, amount: 0.35 }}
             >
               <div className="absolute inset-0 flex items-center justify-center">
-                <Play className="h-14 w-14 text-foreground/40" />
+                <Play className="h-14 w-14 text-foreground/40 transition-transform group-hover:scale-110" />
               </div>
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="rounded-lg border border-border/60 bg-background/70 p-3 text-sm text-muted-foreground">
-                  90 second demo walkthrough
+                  ~90s demo walkthrough · Base Sepolia
                 </div>
               </div>
-            </motion.div>
+            </motion.a>
           </div>
         </MagicCard>
       </div>

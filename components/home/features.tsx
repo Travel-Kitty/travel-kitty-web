@@ -34,6 +34,8 @@ const iconVariants: Variants = {
   },
 };
 
+// ...imports tetap
+
 export default function Features() {
   return (
     <section id="features" className="px-4 sm:px-6 lg:px-8 py-16">
@@ -49,8 +51,8 @@ export default function Features() {
             Why <AuroraText>Travel Kitty</AuroraText>?
           </h2>
           <p className="mx-auto mt-3 max-w-3xl text-balance text-sm sm:text-base lg:text-lg text-muted-foreground">
-            Combining AI intelligence with blockchain transparency to solve
-            group expense tracking forever.
+            AI + Base transparency for painless, trustless group expense
+            splitting. Everything verifiable, nothing complicated.
           </p>
         </motion.div>
 
@@ -66,7 +68,7 @@ export default function Features() {
               icon: <Sparkles className="h-6 w-6" />,
               title: "AI Powered OCR",
               description:
-                "Snap a photo of any receipt. Our AI extracts amounts, currencies, and items instantly.",
+                "Upload a receipt — AI extracts totals, currency, and line items. Editables before posting.",
               color: "from-blue-500 to-cyan-500",
               emoji: "🤖",
             },
@@ -74,23 +76,23 @@ export default function Features() {
               icon: <Shield className="h-6 w-6" />,
               title: "Onchain Proof",
               description:
-                "Every transaction is recorded on Base blockchain with verifiable smart contracts.",
+                "Trips and settlements recorded on Base Sepolia with auditable smart contracts.",
               color: "from-purple-500 to-pink-500",
               emoji: "🔗",
             },
             {
               icon: <Globe className="h-6 w-6" />,
-              title: "Multi Currency",
+              title: "Join via 6 Code",
               description:
-                "Automatic FX conversion using realtime rates. No more manual calculations.",
+                "Creator deploys a trip wallet via Factory, shares a 6 character code, members join onchain.",
               color: "from-green-500 to-emerald-500",
               emoji: "🌍",
             },
             {
               icon: <Zap className="h-6 w-6" />,
-              title: "Instant Settlement",
+              title: "Net Settlement (mUSD)",
               description:
-                "One click net settlement. Everyone gets paid or pays their exact share.",
+                "One click ‘Execute Split’, then members ‘Settle Up’. Uses test mUSD with ERC-20 approve.",
               color: "from-yellow-500 to-orange-500",
               emoji: "⚡",
             },
@@ -98,15 +100,15 @@ export default function Features() {
               icon: <Lock className="h-6 w-6" />,
               title: "Privacy First",
               description:
-                "Receipt images on IPFS, only hashes onchain. Your data stays private.",
+                "Receipt images on IPFS; onchain stores only a compact hash/bytes reference (no PII).",
               color: "from-red-500 to-pink-500",
               emoji: "🔒",
             },
             {
               icon: <BarChart3 className="h-6 w-6" />,
-              title: "Realtime Analytics",
+              title: "Explorer Links",
               description:
-                "Track spending patterns, export reports, and visualize expense distribution.",
+                "One click Basescan links for every deploy & settlement so anyone can verify outcomes.",
               color: "from-indigo-500 to-blue-500",
               emoji: "📊",
             },
@@ -129,6 +131,7 @@ export default function Features() {
               >
                 {feature.title}
               </motion.h3>
+
               <motion.p
                 className="mt-1 text-sm text-muted-foreground"
                 variants={iconVariants}

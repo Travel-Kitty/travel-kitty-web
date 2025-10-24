@@ -46,23 +46,35 @@ export default function Faq() {
           {[
             {
               q: "Do I need cryptocurrency to use Travel Kitty?",
-              a: "For the demo, we use test tokens on Base Sepolia. For production, you'll need a small amount of ETH for gas fees.",
+              a: "For the demo you’ll connect to Base Sepolia. You’ll need a tiny amount of test ETH for gas and test mUSD (claimable from the in-app faucet).",
+            },
+            {
+              q: "Which chain and tokens are supported in the demo?",
+              a: "We run on Base Sepolia. The kitty settles with a test ERC-20 (mUSD). Real-network support will come after the hackathon.",
+            },
+            {
+              q: "How do I join a trip?",
+              a: "Enter the 6 character join code in the app. This links you in our database, then the app also calls the smart contract ‘join’ so you become an onchain member. Creators are auto-joined after creating a trip.",
             },
             {
               q: "How accurate is the AI receipt scanning?",
-              a: "Our AI achieves 95%+ accuracy on standard receipts. You can always edit before submitting to the blockchain.",
+              a: "We use OpenRouter Vision (Qwen2.5-VL) with a tuned prompt. It works well on standard receipts, and you can edit items/amounts before recording onchain.",
             },
             {
-              q: "What happens if someone disputes an expense?",
-              a: "Future versions will include dispute resolution. Currently, all members can view full transaction history for transparency.",
+              q: "What data is onchain vs off-chain?",
+              a: "Members, balances, recorded splits, and settlement live onchain. Receipt text and metadata live in our database; images are stored by URL. No sensitive personal financial data is written to the blockchain.",
             },
             {
-              q: "Is my financial data secure?",
-              a: "Receipt images are stored on IPFS with only hashes onchain. No personal financial data is stored on the blockchain.",
+              q: "Why do I see COOLDOWN when claiming mUSD?",
+              a: "The faucet can be claimed once per cooldown window (e.g., ~24h) per wallet. If you hit COOLDOWN, the app shows when you can try again.",
+            },
+            {
+              q: "How does settlement work?",
+              a: "The creator records a split onchain. Debtors then click “Settle Up”—the contract pulls mUSD from the debtor (after approval) and pays creditors, updating balances transparently.",
             },
             {
               q: "Can I export my expense data?",
-              a: "Yes! Export to CSV, PDF, or integrate with your accounting software via our API.",
+              a: "Exports (CSV/PDF) are on our near term roadmap. For now you can verify settlements and splits on Basescan from the app.",
             },
           ].map((faq, idx) => (
             <motion.details

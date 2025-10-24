@@ -57,7 +57,7 @@ export default function HowWorks() {
             How It <AuroraText>Works</AuroraText>
           </h2>
           <p className="mt-3 text-sm sm:text-base text-muted-foreground">
-            Four simple steps to expense freedom
+            Four on-chain steps from receipt to settlement
           </p>
         </motion.div>
 
@@ -72,25 +72,25 @@ export default function HowWorks() {
             {
               step: "01",
               title: "Create Trip",
-              desc: "Start a new trip pool and invite friends with a simple link",
+              desc: "Deploy a trip wallet on Base. Creator auto joins and gets a 6 character join code.",
               icon: <Users className="h-6 w-6" />,
             },
             {
               step: "02",
-              title: "Add Expenses",
-              desc: "Snap receipts, AI extracts data, uploads to blockchain",
-              icon: <Receipt className="h-6 w-6" />,
+              title: "Share & Join",
+              desc: "Friends join using the code. The app calls join() so membership is recorded onchain.",
+              icon: <Users className="h-6 w-6" />,
             },
             {
               step: "03",
-              title: "Track Balance",
-              desc: "Realtime updates show who owes what to whom",
-              icon: <PieChart className="h-6 w-6" />,
+              title: "Execute Split (onchain)",
+              desc: "Upload a receipt, AI extracts items/total, then post the split to compute balances.",
+              icon: <Receipt className="h-6 w-6" />,
             },
             {
               step: "04",
               title: "Settle Up",
-              desc: "One click settlement with onchain verification",
+              desc: "Debtors approve mUSD and call settleToken(). One click, verifiable on Basescan.",
               icon: <Check className="h-6 w-6" />,
             },
           ].map((item, idx) => (
