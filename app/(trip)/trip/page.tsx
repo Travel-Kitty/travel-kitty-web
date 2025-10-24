@@ -26,6 +26,7 @@ import {
   ExternalLink,
   Search,
   Plane,
+  Info,
 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -44,6 +45,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AuroraText } from "@/components/ui/aurora-text";
@@ -296,6 +302,29 @@ export default function Home() {
     }
   };
 
+  async function handleAddmUSD() {
+    try {
+      const ethereum = (window as any)?.ethereum;
+      if (!ethereum?.request) {
+        toast.error("MetaMask not detected.");
+        return;
+      }
+      await ethereum.request({
+        method: "wallet_watchAsset",
+        params: {
+          type: "ERC20",
+          options: {
+            address: ADDR.MOCK_USD,
+            symbol: "mUSD",
+            decimals: 6, // mUSD kita 6 desimal
+          },
+        },
+      });
+    } catch (e: any) {
+      toast.error(String(e?.message ?? e));
+    }
+  }
+
   // ---------- render ----------
   return (
     <div className="min-h-screen bg-background dark:bg-gradient-to-br dark:from-background dark:via-background dark:to-primary/5 text-foreground">
@@ -489,6 +518,82 @@ export default function Home() {
                           </>
                         )}
                       </Button>
+                      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                        <Info className="h-3.5 w-3.5" />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="underline hover:text-foreground transition-colors cursor-pointer">
+                              What is mUSD? How to view it in MetaMask
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[320px] p-3 text-xs space-y-3">
+                            <div>
+                              <div className="font-medium text-foreground">
+                                mUSD test token
+                              </div>
+                              <div className="text-muted-foreground">
+                                This demo uses a mock USD token on Base Sepolia.
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="text-foreground/80">
+                                Contract address
+                              </div>
+                              <div className="flex items-center gap-2 rounded-md border px-2 py-1">
+                                <code className="truncate text-[11px]">
+                                  {ADDR.MOCK_USD}
+                                </code>
+                                <button
+                                  className="ml-auto inline-flex items-center gap-1 hover:text-foreground cursor-pointer"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(
+                                      ADDR.MOCK_USD
+                                    );
+                                    toast.success("Code copied to clipboard!");
+                                  }}
+                                  title="Copy"
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                              <a
+                                href={`https://sepolia.basescan.org/token/${ADDR.MOCK_USD}`}
+                                target="_blank"
+                                className="inline-flex items-center gap-1 hover:text-foreground underline"
+                                rel="noreferrer"
+                              >
+                                View on Basescan{" "}
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="text-foreground/80">
+                                Add to MetaMask
+                              </div>
+                              <ol className="list-decimal ml-4 space-y-1 text-muted-foreground">
+                                <li>
+                                  Click the button below, or open MetaMask &gt;
+                                  Import tokens
+                                </li>
+                                <li>
+                                  Paste the contract above, symbol <b>mUSD</b>,
+                                  decimals <b>6</b>
+                                </li>
+                              </ol>
+                              <Button
+                                onClick={handleAddmUSD}
+                                variant="outline"
+                                className="mt-2 w-full"
+                                size="sm"
+                              >
+                                Add mUSD to MetaMask
+                              </Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       {claimMsg && (
                         <p
                           className={cn(
