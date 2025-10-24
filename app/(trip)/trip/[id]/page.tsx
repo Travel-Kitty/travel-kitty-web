@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
+import { stringToHex } from "viem";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -45,6 +46,7 @@ import { config } from "@/lib/wagmi";
 export default function TripPage() {
   const params = useParams<{ id: string }>();
   const [settling, setSettling] = useState<boolean>(false);
+  const [myBalance, setMyBalance] = useState<bigint | null>(null);
   const { address } = useAccount();
 
   const { data: trip, isLoading: loadingTrip } = useTripDetail(params.id);
@@ -54,9 +56,12 @@ export default function TripPage() {
     useOnchainMembers((trip?.tripAddress as `0x${string}`) || null);
 
   const amCreator = !!trip && address?.toLowerCase() === trip.creator;
-  const members = (chainMembers?.length ? chainMembers : dbMembers) as string[];
+  const members = chainMembers as string[];
   const me = (address ?? "").toLowerCase();
-  const memberIndex = members.findIndex((m) => m.toLowerCase() === me);
+  const onchainJoined = useMemo(
+    () => (chainMembers || []).some((m) => m.toLowerCase() === me),
+    [chainMembers, me]
+  );
 
   const receiptItems: Array<{
     name?: string;
@@ -70,99 +75,150 @@ export default function TripPage() {
     toast.success(`${label} copied to clipboard!`);
   };
 
-  async function handleSettleUp() {
+  async function handleExecuteSplit() {
     try {
-      if (!trip?.tripAddress) throw new Error("Missing trip contract address");
-      if (!members || members.length < 2) throw new Error("Not enough members");
-      if (memberIndex < 0) throw new Error("You are not a member of this trip");
+      if (!amCreator)
+        return toast.error("Only the creator can execute the split.");
+      if (!trip.latestReceipt) return toast.error("No receipt found.");
 
-      setSettling(true);
+      const membersOnchain = (await readContract(config, {
+        address: trip.tripAddress as `0x${string}`,
+        abi: travelKittyAbi,
+        functionName: "getMembers",
+      })) as `0x${string}`[];
 
-      // 1) Read all balances (int256) for members
-      const balances = await Promise.all(
-        members.map(
-          (m) =>
-            readContract(config, {
-              address: trip.tripAddress as `0x${string}`,
-              abi: travelKittyAbi,
-              functionName: "getBalance",
-              args: [m as `0x${string}`],
-            }) as Promise<bigint>
+      if (!membersOnchain || membersOnchain.length < 2) {
+        return toast.error("Need at least 2 on-chain members to split.");
+      }
+      if (
+        !membersOnchain.some(
+          (m) => m.toLowerCase() === trip.creator.toLowerCase()
         )
+      ) {
+        return toast.error("Creator has not joined on-chain yet.");
+      }
+
+      const total = Number(trip.latestReceipt.total ?? 0);
+      const amountUsd6 = BigInt(Math.round(total * 1_000_000));
+
+      const cidBytes = stringToHex(
+        JSON.stringify({
+          tripId: trip.id,
+          total,
+          currency: trip.latestReceipt.currency,
+          ts: Date.now(),
+        })
       );
 
-      const myBal = balances[memberIndex]; // int256 as bigint
+      const hash = await writeContract(config, {
+        address: trip.tripAddress as `0x${string}`,
+        abi: travelKittyAbi,
+        functionName: "addExpense",
+        args: [amountUsd6, cidBytes, membersOnchain],
+        account: address as `0x${string}`,
+      });
+
+      await waitForTransactionReceipt(config, { hash });
+      toast.success("✅ Split recorded on-chain!");
+    } catch (e) {
+      toast.error(String((e as any).shortMessage ?? (e as any).message ?? e));
+      console.error(e);
+    }
+  }
+
+  async function handleSettleUp() {
+    try {
+      setSettling(true);
+      if (!address) return toast.error("Connect your wallet");
+      if (!onchainJoined)
+        return toast.error("Please join the trip on-chain first.");
+
+      // 1) My balance
+      const myBal = (await readContract(config, {
+        address: trip?.tripAddress as `0x${string}`,
+        abi: travelKittyAbi,
+        functionName: "getBalance",
+        args: [address as `0x${string}`],
+      })) as bigint;
+
       if (myBal >= 0n) {
-        toast.info("You have no debt to settle.");
-        return;
+        return toast.error("You have no debt to settle."); // you're a creditor or zero
       }
 
-      // 2) Build creditor list (only positives)
-      type Cred = { addr: `0x${string}`; amt: bigint };
-      const creditors: Cred[] = [];
-      for (let i = 0; i < members.length; i++) {
-        if (i === memberIndex) continue; // skip self
-        const b = balances[i];
-        if (b > 0n) {
-          creditors.push({ addr: members[i] as `0x${string}`, amt: b });
+      // 2) Find a creditor (any member with positive balance)
+      const members = (await readContract(config, {
+        address: trip?.tripAddress as `0x${string}`,
+        abi: travelKittyAbi,
+        functionName: "getMembers",
+      })) as `0x${string}`[];
+
+      let creditor: `0x${string}` | null = null;
+      let credAmt: bigint = 0n;
+      for (const m of members) {
+        const b = (await readContract(config, {
+          address: trip?.tripAddress as `0x${string}`,
+          abi: travelKittyAbi,
+          functionName: "getBalance",
+          args: [m],
+        })) as bigint;
+        if (b > credAmt) {
+          creditor = m;
+          credAmt = b;
         }
       }
-      if (creditors.length === 0) {
-        toast.info("No creditors found.");
-        return;
+      if (!creditor || credAmt <= 0n) {
+        return toast.error("No creditor found to settle with.");
       }
 
-      // Sort creditors (largest first helps reduce txs, but any order works)
-      creditors.sort((a, b) => (a.amt > b.amt ? -1 : a.amt < b.amt ? 1 : 0));
+      // 3) Amount to pay = min(|myBal|, creditor)
+      const pay = -myBal < credAmt ? -myBal : credAmt;
 
-      // Total I owe (positive amount in USD*1e6)
-      let remaining = -myBal; // turn negative into positive
-
-      // 3) Single approval for total owed
-      //    Approve TravelKitty to pull mUSD from my wallet up to `remaining`
+      // 4) Approve mUSD
       const approveHash = await writeContract(config, {
         address: ADDR.MOCK_USD,
         abi: erc20Abi,
         functionName: "approve",
-        args: [trip.tripAddress as `0x${string}`, remaining],
+        args: [trip?.tripAddress as `0x${string}`, pay],
+        account: address as `0x${string}`,
       });
       await waitForTransactionReceipt(config, { hash: approveHash });
 
-      // 4) Greedy settle: pay each creditor until my debt is 0
-      for (const c of creditors) {
-        if (remaining === 0n) break;
-        const pay = remaining < c.amt ? remaining : c.amt;
+      // 5) Settle
+      const settleHash = await writeContract(config, {
+        address: trip?.tripAddress as `0x${string}`,
+        abi: travelKittyAbi,
+        functionName: "settleToken",
+        args: [creditor, pay, ADDR.MOCK_USD],
+        account: address as `0x${string}`,
+      });
+      await waitForTransactionReceipt(config, { hash: settleHash });
 
-        const settleHash = await writeContract(config, {
-          address: trip.tripAddress as `0x${string}`,
-          abi: travelKittyAbi,
-          functionName: "settleToken",
-          args: [c.addr, pay, ADDR.MOCK_USD],
-        });
-        await waitForTransactionReceipt(config, { hash: settleHash });
-
-        remaining -= pay;
-      }
-
-      if (remaining === 0n) {
-        toast.success("✅ All your debts are settled with mUSD!");
-      } else {
-        // This can happen if some creditor balance changed between reads & txs
-        toast.success("✅ Partially settled. Some balances changed on-chain.");
-      }
-    } catch (e: any) {
-      const msg =
-        e?.shortMessage ||
-        e?.cause?.reason ||
-        e?.cause?.shortMessage ||
-        e?.message ||
-        "Failed to settle";
-      toast.error(msg);
-      console.error("settle error:", e);
+      toast.success("✅ Settled!");
+    } catch (e) {
+      toast.error(String((e as any).shortMessage ?? (e as any).message ?? e));
+      console.error(e);
     } finally {
       setSettling(false);
     }
   }
+
+  useEffect(() => {
+    (async () => {
+      if (!trip?.tripAddress || !address) return;
+      try {
+        const b = (await readContract(config, {
+          address: trip.tripAddress as `0x${string}`,
+          abi: travelKittyAbi,
+          functionName: "getBalance",
+          args: [address as `0x${string}`],
+        })) as bigint;
+        setMyBalance(b);
+      } catch (e) {
+        console.warn("read my balance failed", e);
+        setMyBalance(null);
+      }
+    })();
+  }, [trip?.tripAddress, address]);
 
   if (loadingTrip) {
     return (
@@ -376,100 +432,150 @@ export default function TripPage() {
           </Card>
         )}
 
-        {/* Members Section - Only for creator */}
-        {amCreator && (
-          <Card className="border shadow-sm hover:border-primary/50 transition-colors dark:shadow-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
-                <Users className="h-5 w-5" />
-                Trip Members
-              </CardTitle>
-              <CardDescription className="text-gray-600 dark:text-gray-400">
-                People who have joined this trip
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loadingDbMembers || loadingChainMembers ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-muted-foreground" />
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    {(chainMembers?.length ? chainMembers : dbMembers)
-                      .length === 0 ? (
-                      <div className="text-center py-8 space-y-2">
-                        <p className="text-gray-600 dark:text-muted-foreground">
-                          No members yet
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Share the trip code for others to join
-                        </p>
-                      </div>
-                    ) : (
-                      (chainMembers?.length ? chainMembers : dbMembers).map(
-                        (m, idx) => (
-                          <div
-                            key={m}
-                            className="flex items-center justify-between p-3 rounded-lg bg-muted"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold text-sm">
-                                {idx + 1}
-                              </div>
-                              <code className="text-xs sm:text-sm font-mono text-gray-900 dark:text-white overflow-hidden text-ellipsis whitespace-nowrap">
-                                {m}
-                              </code>
-                            </div>
-                            {m.toLowerCase() === trip.creator.toLowerCase() && (
-                              <Badge
-                                variant="secondary"
-                                className="bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 shrink-0"
-                              >
-                                Creator
-                              </Badge>
-                            )}
-                          </div>
-                        )
-                      )
-                    )}
-                  </div>
-
-                  <div className="mt-4 p-4 rounded-lg bg-muted">
-                    {" "}
-                    <div className="flex gap-2">
-                      {" "}
-                      <CheckCircle2 className="h-5 w-5 text-gray-600 dark:text-gray-300 flex-shrink-0 mt-0.5" />{" "}
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        When everyone has joined, you can proceed to recording
-                        expenses and settlement.
+        <Card className="border shadow-sm hover:border-primary/50 transition-colors dark:shadow-none">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+              <Users className="h-5 w-5" />
+              Trip Members
+            </CardTitle>
+            <CardDescription className="text-gray-600 dark:text-gray-400">
+              People who have joined this trip
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingDbMembers || loadingChainMembers ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  {chainMembers.length === 0 ? (
+                    <div className="text-center py-8 space-y-2">
+                      <p className="text-gray-600 dark:text-muted-foreground">
+                        No members yet
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Share the trip code for others to join
                       </p>
                     </div>
+                  ) : (
+                    chainMembers.map((m, idx) => (
+                      <div
+                        key={m}
+                        className="flex items-center justify-between p-3 rounded-lg bg-muted"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold text-sm">
+                            {idx + 1}
+                          </div>
+                          <code className="text-xs sm:text-sm font-mono text-gray-900 dark:text-white overflow-hidden text-ellipsis whitespace-nowrap">
+                            {m}
+                          </code>
+                        </div>
+                        {m.toLowerCase() === trip.creator.toLowerCase() && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 shrink-0"
+                          >
+                            Creator
+                          </Badge>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="mt-4 p-4 rounded-lg bg-muted">
+                  {" "}
+                  <div className="flex gap-2">
+                    {" "}
+                    <CheckCircle2 className="h-5 w-5 text-gray-600 dark:text-gray-300 flex-shrink-0 mt-0.5" />{" "}
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      When everyone has joined, you can proceed to recording
+                      expenses and settlement.
+                    </p>
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {!onchainJoined && !!address && (
+          <div className="p-3 rounded-lg bg-muted text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span>
+                You are not a member on-chain yet. Please join before settling.
+              </span>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const hash = await writeContract(config, {
+                      address: trip.tripAddress as `0x${string}`,
+                      abi: travelKittyAbi,
+                      functionName: "join",
+                      account: address as `0x${string}`,
+                    });
+                    await waitForTransactionReceipt(config, { hash });
+                    toast.success("Joined on-chain!");
+                  } catch (e: any) {
+                    toast.error(String(e?.shortMessage ?? e?.message ?? e));
+                  }
+                }}
+              >
+                Join Trip (on-chain)
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Action Buttons */}
+        {myBalance !== null && (
+          <div className="p-3 rounded-lg bg-muted text-sm">
+            {myBalance < 0n ? (
+              <span>
+                You owe <b>{Number(-myBalance) / 1_000_000} mUSD</b>. Click{" "}
+                <b>Settle Up</b> to pay.
+              </span>
+            ) : myBalance > 0n ? (
+              <span>
+                You’re owed <b>{Number(myBalance) / 1_000_000} mUSD</b>. Wait
+                for members to settle.
+              </span>
+            ) : (
+              <span>Your balance is settled.</span>
+            )}
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row gap-3">
-          <Button
+          {/* <Button
             className="flex-1 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900"
             disabled
           >
             Add Expense
-          </Button>
+          </Button> */}
+          {amCreator && (
+            <Button
+              className="flex-1 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900"
+              onClick={handleExecuteSplit}
+            >
+              Execute Split (onchain)
+            </Button>
+          )}
           <Button
             variant="outline"
             className="flex-1 border-gray-200 dark:border-gray-800"
             onClick={handleSettleUp}
-            disabled={settling || !address || members.length < 2}
+            disabled={
+              settling || !address || !onchainJoined || members.length < 2
+            }
           >
             {settling ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Settling…
+                {" "}
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Settling…{" "}
               </>
             ) : (
               "Settle Up"

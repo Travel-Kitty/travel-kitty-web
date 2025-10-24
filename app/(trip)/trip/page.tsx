@@ -17,19 +17,24 @@ import {
   readContract,
 } from "wagmi/actions";
 import Link from "next/link";
-import { config } from "@/lib/wagmi";
-import { ADDR, factoryAbi, faucetAbi } from "@/lib/contracts";
 import {
-  useTripList,
-  useCreateTrip,
-  useJoinTrip,
-} from "@/hooks/handler-request/use-trip";
+  Loader2,
+  Plus,
+  LogIn,
+  Coins,
+  Copy,
+  ExternalLink,
+  Search,
+  Plane,
+} from "lucide-react";
+import Image from "next/image";
+import { toast } from "sonner";
+
 import {
   ReceiptCreateDialog,
   type ReceiptCreateForm,
 } from "@/components/trip/receipt-create-dialog";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -41,21 +46,18 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Loader2,
-  Plus,
-  LogIn,
-  Coins,
-  Copy,
-  ExternalLink,
-  Search,
-  Plane,
-} from "lucide-react";
-import { cn } from "@/utils/utils";
-import Image from "next/image";
-import Logo from "@/public/images/logo.png";
 import { AuroraText } from "@/components/ui/aurora-text";
 import FooterTrip from "@/components/layout/footer-trip";
+
+import { config } from "@/lib/wagmi";
+import { cn } from "@/utils/utils";
+import Logo from "@/public/images/logo.png";
+import { ADDR, factoryAbi, faucetAbi, travelKittyAbi } from "@/lib/contracts";
+import {
+  useTripList,
+  useCreateTrip,
+  useJoinTrip,
+} from "@/hooks/handler-request/use-trip";
 
 // ---------- small utils ----------
 const basescanTx = (hash: string) => `https://sepolia.basescan.org/tx/${hash}`;
@@ -134,12 +136,15 @@ export default function Home() {
     setClaiming(true);
     setClaimMsg(null);
     try {
-      const sim = await writeContract(config, {
+      const sim = await simulateContract(config, {
         address: ADDR.FAUCET,
         abi: faucetAbi,
         functionName: "claim",
         args: [],
+        account: address as `0x${string}`,
       });
+      const hash = await writeContract(config, sim.request);
+      await waitForTransactionReceipt(config, { hash });
       setClaimMsg("✅ Claimed mUSD!");
       toast.success("Successfully claimed mUSD!");
     } catch (e) {
@@ -151,7 +156,7 @@ export default function Home() {
               address: ADDR.FAUCET,
               abi: faucetAbi,
               functionName: "lastClaim",
-              args: [address],
+              args: [address as `0x${string}`],
             }) as Promise<bigint>,
             readContract(config, {
               address: ADDR.FAUCET,
@@ -181,7 +186,41 @@ export default function Home() {
       return;
     }
     try {
-      await joinTripMutation.mutateAsync({ code6: code, wallet: me as string });
+      const joined = await joinTripMutation.mutateAsync({
+        code6: code,
+        wallet: me!,
+      });
+      let tripAddr = (joined as any)?.tripAddress as `0x${string}` | undefined;
+      if (!tripAddr && Array.isArray(trips)) {
+        const row = trips.find((t) => t.code6 === code);
+        tripAddr = row?.tripAddress as `0x${string}` | undefined;
+      }
+      if (!tripAddr) throw new Error("Unable to resolve trip address...");
+
+      const chainMembers = (await readContract(config, {
+        address: tripAddr,
+        abi: travelKittyAbi,
+        functionName: "getMembers",
+      })) as `0x${string}`[];
+      const amMember = chainMembers.some(
+        (m) => m.toLowerCase() === address.toLowerCase()
+      );
+
+      if (!amMember) {
+        try {
+          const hash = await writeContract(config, {
+            address: tripAddr,
+            abi: travelKittyAbi,
+            functionName: "join",
+            account: address as `0x${string}`,
+          });
+          await waitForTransactionReceipt(config, { hash });
+        } catch (err: any) {
+          const msg = String(err?.shortMessage ?? err?.message ?? err);
+          if (!/already|member/i.test(msg)) throw err;
+        }
+      }
+
       setJoinCode("");
       toast.success("✅ Joined trip!");
     } catch (e) {
@@ -212,7 +251,7 @@ export default function Home() {
       });
 
       const hash = await writeContract(config, sim.request);
-      const receipt = await waitForTransactionReceipt(config, { hash });
+      await waitForTransactionReceipt(config, { hash });
 
       const tripAddr = sim.result as `0x${string}`;
 
@@ -227,6 +266,29 @@ export default function Home() {
         items: values.items,
         total: values.total,
       });
+
+      try {
+        const jHash = await writeContract(config, {
+          address: tripAddr,
+          abi: travelKittyAbi,
+          functionName: "join",
+          account: address as `0x${string}`,
+        });
+        await waitForTransactionReceipt(config, { hash: jHash });
+      } catch (err: any) {
+        const msg = String(err?.shortMessage ?? err?.message ?? err);
+        if (!/already|member/i.test(msg)) throw err;
+      }
+
+      try {
+        await joinTripMutation.mutateAsync({
+          code6,
+          wallet: address.toLowerCase(),
+        });
+      } catch (err) {
+        console.warn("DB join for creator failed (non-fatal):", err);
+      }
+
       toast.success(`🐾 Trip created! Code: ${code6}`);
       setOpenCreateDialog(false);
     } finally {
