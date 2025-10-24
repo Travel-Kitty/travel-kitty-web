@@ -79,6 +79,20 @@ export const faucetAbi = [
     outputs: [],
     stateMutability: "nonpayable",
   },
+  {
+    type: "function",
+    name: "lastClaim",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "cooldown",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
 ] as const;
 
 export const factoryAbi = [
